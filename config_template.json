@@ -1,0 +1,11 @@
+{
+  "app_name": "PRODE WorkTimeAsistem",
+  "departments": [
+    "Capital Humano",
+    "Ultima Milla",
+    "Servicios Externos",
+    "Direccion"
+  ],
+  "global_admin": "danielgilabert@prode.es",
+  "sharepoint_root_path": "deploy_AsistAnalyser"
+}

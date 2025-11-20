@@ -1,0 +1,10 @@
+streamlit
+pandas
+numpy
+openpyxl
+reportlab
+msal
+requests
+pillow
+python-dateutil
+scikit-learn
