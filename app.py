@@ -1,3 +1,7 @@
+# -------------------------------------------------------------
+#  PRODE WorkTimeAsistem - Versión corregida para Streamlit Cloud
+# -------------------------------------------------------------
+
 import os
 import io
 import calendar
@@ -17,24 +21,25 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 
 
-# ------------------------------------------------------------
-# CONFIGURACIÓN GENERAL
-# ------------------------------------------------------------
+# -------------------------------------------------------------
+# CONFIGURACIÓN
+# -------------------------------------------------------------
 APP_NAME = "PRODE WorkTimeAsistem"
 ADMIN_KEY = "PRODE-ADMIN-ADMIN"
 
-LOGO_PATH = Path("assets/logo-prode.jpg")
+LOGO_FILENAME = "logo-prode.jpg"
+
 HORAS_SEMANALES = 38.5
-HORAS_DIA = HORAS_SEMANALES / 5  # 7.7 horas
+HORAS_LABORALES_DIA = HORAS_SEMANALES / 5  # 7.7
 
 DEFAULT_KEYS = [
-    "PRODE-ADMIN-ADMIN",
-    "PRODE-CAPITALHUMANO-ZMGR",
+    ADMIN_KEY,
     "PRODE-ULTIMAMILLA-DGC",
-    "PRODE-ULTIMAMILLA-JLM"
+    "PRODE-ULTIMAMILLA-JLM",
+    "PRODE-CAPITALHUMANO-ZMGR"
 ]
 
-FESTIVOS_NACIONALES = [
+DEFAULT_FESTIVOS = [
     "2025-01-01","2025-03-24","2025-04-17","2025-04-18","2025-05-01",
     "2025-05-26","2025-06-16","2025-06-23","2025-06-30","2025-07-20",
     "2025-08-07","2025-08-18","2025-10-13","2025-11-03","2025-11-17",
@@ -44,23 +49,23 @@ FESTIVOS_NACIONALES = [
 FESTIVOS_ANDALUCIA = ["2025-02-28"]
 
 
-# ------------------------------------------------------------
+# -------------------------------------------------------------
 # FUNCIONES AUXILIARES
-# ------------------------------------------------------------
-def safe_date(x):
+# -------------------------------------------------------------
+def safe_parse_date(x):
     try:
         return pd.to_datetime(x).date()
     except:
         return None
 
 
-def time_to_hours(s):
-    """Convierte 07:30 o 7.5 en horas float."""
+def time_str_to_hours(s):
     if pd.isna(s):
         return np.nan
+    if isinstance(s, (int, float)):
+        return float(s)
 
     s = str(s).strip()
-
     if ":" in s:
         try:
             h, m = s.split(":")
@@ -75,62 +80,70 @@ def time_to_hours(s):
         return np.nan
 
 
-def hours_to_hhmm(h):
-    if pd.isna(h):
+def hours_to_hhmm(hours):
+    if hours is None or (isinstance(hours, float) and np.isnan(hours)):
         return "0:00"
-    total = int(round(h * 60))
-    return f"{total // 60}:{total % 60:02d}"
+    total_min = int(round(float(hours) * 60))
+    h = total_min // 60
+    m = total_min % 60
+    return f"{h}:{m:02d}"
 
 
-def dates_range(start, end):
+def daterange(start, end):
     for n in range((end - start).days + 1):
         yield start + timedelta(n)
 
 
-def ensure_month_dir(year, month):
-    meses = ["enero","febrero","marzo","abril","mayo","junio",
-             "julio","agosto","septiembre","octubre","noviembre","diciembre"]
-    nombre = meses[month - 1].capitalize()
-
-    base = Path().resolve()
-    folder = base / "informes" / f"{nombre} {year}"
+def create_month_folder_from_date(year, month):
+    meses = [
+        "enero","febrero","marzo","abril","mayo","junio",
+        "julio","agosto","septiembre","octubre","noviembre","diciembre"
+    ]
+    mes_nombre = meses[month-1].capitalize()
+    base = Path("informes")
+    folder = base / f"{mes_nombre} {year}"
     folder.mkdir(parents=True, exist_ok=True)
     return folder
 
 
-# ------------------------------------------------------------
+# -------------------------------------------------------------
 # INTERFAZ STREAMLIT
-# ------------------------------------------------------------
+# -------------------------------------------------------------
 st.set_page_config(page_title=APP_NAME, layout="wide")
-st.markdown(f"<h1 style='color:#004b7f;'>🏢 {APP_NAME}</h1>", unsafe_allow_html=True)
 
-if LOGO_PATH.exists():
-    st.image(str(LOGO_PATH), width=160)
+st.markdown(f"<h1 style='color:#003366;'>🏢 {APP_NAME}</h1>", unsafe_allow_html=True)
+
+if Path(LOGO_FILENAME).exists():
+    st.image(LOGO_FILENAME, width=140)
 
 st.markdown("<h5 style='text-align:center;color:gray;'>Desarrollado por Daniel Gilabert Cantero — Fundación PRODE</h5>", unsafe_allow_html=True)
 st.markdown("---")
 
 
-# ------------------------------------------------------------
-# SISTEMA DE ACCESO
-# ------------------------------------------------------------
+# -------------------------------------------------------------
+# SESIONES
+# -------------------------------------------------------------
 if "activated" not in st.session_state:
     st.session_state.activated = False
     st.session_state.current_key = None
     st.session_state.is_admin = False
 
-if "keys" not in st.session_state:
-    st.session_state.keys = DEFAULT_KEYS.copy()
+if "user_keys" not in st.session_state:
+    st.session_state.user_keys = DEFAULT_KEYS.copy()
 
-if "ausencias" not in st.session_state:
-    st.session_state.ausencias = {}  # {empleado: {motivo: [fechas]}}
+if "dias_por_empleado" not in st.session_state:
+    st.session_state.dias_por_empleado = {}
 
 
-st.sidebar.header("🔐 Acceso temporal")
-key_input = st.sidebar.text_input("Clave:", type="password")
+# -------------------------------------------------------------
+# CONTROL DE ACCESO
+# -------------------------------------------------------------
+st.sidebar.header("🔐 Acceso")
+
+key_input = st.sidebar.text_input("Introduce tu clave:", type="password")
 
 if st.sidebar.button("Activar"):
-    if key_input.strip() in st.session_state.keys:
+    if key_input.strip() in st.session_state.user_keys:
         st.session_state.activated = True
         st.session_state.current_key = key_input.strip()
         st.session_state.is_admin = (key_input.strip() == ADMIN_KEY)
@@ -139,262 +152,225 @@ if st.sidebar.button("Activar"):
         st.sidebar.error("Clave incorrecta ❌")
 
 
-if not st.session_state.activated:
-    st.warning("🔒 Introduce tu clave en la barra lateral para acceder")
-    st.stop()
-
-
-# ------------------------------------------------------------
-# PANEL ADMIN (solo PRODE-ADMIN-ADMIN)
-# ------------------------------------------------------------
+# ADMINISTRADOR
 if st.session_state.is_admin:
+    st.sidebar.markdown("---")
     st.sidebar.subheader("🛠 Gestión de claves")
+
     nueva = st.sidebar.text_input("Nueva clave")
-    if st.sidebar.button("➕ Añadir"):
-        if nueva and nueva not in st.session_state.keys:
-            st.session_state.keys.append(nueva)
-            st.sidebar.success("Clave añadida")
 
-    eliminar = st.sidebar.selectbox("Eliminar clave", [k for k in st.session_state.keys if k != ADMIN_KEY])
-    if st.sidebar.button("🗑️ Borrar clave"):
-        st.session_state.keys.remove(eliminar)
-        st.sidebar.warning(f"Clave {eliminar} eliminada")
+    if st.sidebar.button("➕ Añadir clave"):
+        if nueva and nueva not in st.session_state.user_keys:
+            st.session_state.user_keys.append(nueva)
+            st.sidebar.success("Clave añadida ✔")
+
+    eliminar = st.sidebar.selectbox("Eliminar clave", [k for k in st.session_state.user_keys if k != ADMIN_KEY])
+
+    if st.sidebar.button("🗑️ Eliminar clave"):
+        st.session_state.user_keys.remove(eliminar)
+        st.sidebar.warning("Clave eliminada")
 
 
-# ------------------------------------------------------------
+if not st.session_state.activated:
+    st.warning("Introduce tu clave para acceder.")
+    st.stop()
+
+
+# -------------------------------------------------------------
 # SUBIR ARCHIVO
-# ------------------------------------------------------------
-st.subheader("📂 Subir fichajes (.xlsx)")
-archivo = st.file_uploader("Selecciona archivo Excel", type=["xlsx"])
+# -------------------------------------------------------------
+st.subheader("📂 Subir archivo de fichajes")
 
-if not archivo:
-    st.info("Sube el archivo de fichajes para comenzar.")
+uploaded = st.file_uploader("Selecciona el archivo", type=["xlsx", "xls", "csv"])
+
+if not uploaded:
+    st.info("Sube un archivo para continuar.")
     st.stop()
 
 
-# ------------------------------------------------------------
-# LEER EXCEL
-# ------------------------------------------------------------
+# -------------------------------------------------------------
+# PROCESAR ARCHIVO
+# -------------------------------------------------------------
 try:
-    df_raw = pd.read_excel(archivo)
+    if uploaded.name.lower().endswith(("xls", "xlsx")):
+        df_raw = pd.read_excel(uploaded)
+    else:
+        uploaded.seek(0)
+        df_raw = pd.read_csv(uploaded, sep=None, engine="python")
 except Exception as e:
-    st.error(f"Error leyendo archivo: {e}")
+    st.error(f"No se puede leer el archivo: {e}")
     st.stop()
 
 
-cols = {c.lower().strip(): c for c in df_raw.columns}
+# Normalizar columnas
+cols_map_lower = {c.lower().strip(): c for c in df_raw.columns}
 
-
-def col(*names):
-    for n in names:
-        for key, orig in cols.items():
-            if n.lower() in key:
+def find_col(possible_names):
+    for p in possible_names:
+        for k, orig in cols_map_lower.items():
+            if p.lower() in k:
                 return orig
     return None
 
 
-col_nom = col("apellidos y nombre", "empleado", "nombre")
-col_fecha = col("fecha")
-col_horas = col("tiempo trabajado", "hras", "horas")
+col_nombre = find_col(["apellidos y nombre", "nombre", "empleado"])
+col_fecha = find_col(["fecha"])
+col_horas = find_col(["tiempo", "horas", "tiempo trabajado"])
 
-if not col_nom or not col_fecha or not col_horas:
-    st.error("No se encontraron columnas obligatorias. Revisa el archivo.")
-    st.write("Columnas detectadas:", df_raw.columns)
+if not col_nombre or not col_fecha or not col_horas:
+    st.error("No se encontraron las columnas necesarias.")
     st.stop()
 
 
 df = pd.DataFrame()
-df["nombre"] = df_raw[col_nom].astype(str).str.strip()
-df["fecha"] = pd.to_datetime(df_raw[col_fecha], errors="coerce").dt.date
-df["horas"] = df_raw[col_horas].apply(time_to_hours)
+df["nombre"] = df_raw[col_nombre].astype(str).str.strip()
+df["fecha_orig"] = df_raw[col_fecha]
+
+df["fecha"] = pd.to_datetime(df["fecha_orig"], errors="coerce").dt.date
+df["horas"] = df_raw[col_horas].apply(time_str_to_hours)
 
 df = df.dropna(subset=["fecha"])
+df = df[df["nombre"] != ""]
 
 
-st.success(f"Datos cargados: {len(df)} registros | {df['nombre'].nunique()} empleados")
-
-
-# ------------------------------------------------------------
-# DETECTAR MES Y AÑO
-# ------------------------------------------------------------
+# -------------------------------------------------------------
+# DETECTAR MES
+# -------------------------------------------------------------
 month = int(df["fecha"].apply(lambda d: d.month).mode()[0])
 year = int(df["fecha"].apply(lambda d: d.year).mode()[0])
 
-folder = ensure_month_dir(year, month)
-st.info(f"📁 Informes se guardarán en: {folder}")
+meses_sp = [
+    "enero","febrero","marzo","abril","mayo","junio",
+    "julio","agosto","septiembre","octubre","noviembre","diciembre"
+]
+month_name = meses_sp[month-1].capitalize()
+
+folder = create_month_folder_from_date(year, month)
+st.info(f"Los informes se guardarán en: {folder}")
 
 
-# ------------------------------------------------------------
-# FESTIVOS MANUALES
-# ------------------------------------------------------------
-st.subheader("📅 Festivos adicionales (opcional)")
-festivos_input = st.text_input("Fechas (AAAA-MM-DD separadas por coma)")
+# -------------------------------------------------------------
+# CONTROL DE FESTIVOS Y AUSENCIAS
+# -------------------------------------------------------------
+st.subheader("📅 Festivos adicionales")
+festivos_input = st.text_input("Festivos (AAAA-MM-DD separados por coma)")
 
-festivos_manuales = [safe_date(x) for x in festivos_input.split(",") if safe_date(x)]
+manual_festivos = []
+for token in [t.strip() for t in festivos_input.split(",") if t.strip()]:
+    d = safe_parse_date(token)
+    if d:
+        manual_festivos.append(d)
 
 
-# ------------------------------------------------------------
-# AUSENCIAS / VACACIONES / BAJA
-# ------------------------------------------------------------
-st.subheader("🏖️ Registrar ausencias por empleado")
+st.subheader("🏖️ Ausencias por empleado")
 
-empleado = st.selectbox("Empleado", sorted(df["nombre"].unique()))
-motivo = st.selectbox("Motivo", ["Vacaciones", "Permiso", "Baja médica"])
-
-rango = st.date_input("Rango (inicio - fin)", [])
+empleado_sel = st.selectbox("Empleado", sorted(df["nombre"].unique()))
+motivo_sel = st.selectbox("Motivo", ["Vacaciones", "Permiso", "Baja médica"])
+rango = st.date_input("Rango de fechas", [])
 
 if st.button("➕ Añadir ausencia"):
     if len(rango) == 2:
-        ini, fin = rango
-        st.session_state.ausencias.setdefault(empleado, {})
-        st.session_state.ausencias[empleado].setdefault(motivo, [])
-        st.session_state.ausencias[empleado][motivo].extend(list(dates_range(ini, fin)))
-        st.success(f"Añadido: {empleado} — {motivo}")
-    else:
-        st.error("Selecciona un rango válido")
+        desde, hasta = rango
+        st.session_state.dias_por_empleado.setdefault(empleado_sel, {})
+        st.session_state.dias_por_empleado[empleado_sel].setdefault(motivo_sel, [])
+        st.session_state.dias_por_empleado[empleado_sel][motivo_sel].extend(list(daterange(desde, hasta)))
+        st.success("Ausencia añadida ✔")
 
 
-# ------------------------------------------------------------
-# PROCESAR DATOS
-# ------------------------------------------------------------
-if st.button("⚙️ Generar informes"):
+umbral_alerta = st.sidebar.slider("Umbral días sin fichar", 1, 10, 3)
 
-    festivos = set([safe_date(x) for x in FESTIVOS_NACIONALES + FESTIVOS_ANDALUCIA if safe_date(x)])
-    festivos |= set(festivos_manuales)
 
-    dias_mes = list(dates_range(date(year, month, 1), date(year, month, calendar.monthrange(year, month)[1])))
+# -------------------------------------------------------------
+# PROCESAR Y GENERAR INFORMES
+# -------------------------------------------------------------
+if st.button("⚙️ Procesar datos y generar informes"):
 
-    resumen = []
-    alertas = []
+    resumen_empleados = []
 
     for nombre, g in df.groupby("nombre"):
-
         mapa = g.groupby("fecha")["horas"].sum().to_dict()
         total_horas = sum(mapa.values())
-
-        aus = list(chain.from_iterable(
-            st.session_state.ausencias.get(nombre, {}).values()
-        ))
-
-        no_laborables = festivos.union(aus)
-        laborables = [d for d in dias_mes if d.weekday() < 5 and d not in no_laborables]
-
-        objetivo = len(laborables) * HORAS_DIA
-        diferencia = total_horas - objetivo
-        extras = max(diferencia, 0)
-
-        sin_fichar = [d for d in laborables if mapa.get(d, 0) == 0]
-
-        resumen.append({
-            "Empleado": nombre,
-            "Horas": total_horas,
-            "Objetivo": objetivo,
-            "Dif": diferencia,
-            "Extras": extras,
-            "Fichados": len(laborables) - len(sin_fichar),
-            "SinFichar": sin_fichar,
-            "Mapa": mapa
+        resumen_empleados.append({
+            "nombre": nombre,
+            "mapa_horas": mapa,
+            "total_horas": total_horas
         })
 
-        if len(sin_fichar) > 0:
-            alertas.append((nombre, len(sin_fichar)))
+    dias_mes = list(daterange(date(year, month, 1), date(year, month, calendar.monthrange(year, month)[1])))
 
+    festivos_obj = set(safe_parse_date(d) for d in DEFAULT_FESTIVOS + FESTIVOS_ANDALUCIA if safe_parse_date(d))
 
-    # ------------------------------------------------------------
-    # PDF GENERADORES
-    # ------------------------------------------------------------
-    styles = getSampleStyleSheet()
+    for d in manual_festivos:
+        festivos_obj.add(d)
 
-    def pdf_individual(r):
+    global_data = []
 
-        bio = io.BytesIO()
-        doc = SimpleDocTemplate(bio, pagesize=A4, leftMargin=2*cm, rightMargin=2*cm)
+    for r in resumen_empleados:
+        nombre = r["nombre"]
 
-        elems = []
+        ausencias = list(chain.from_iterable(
+            st.session_state.dias_por_empleado.get(nombre, {}).values()
+        )) if nombre in st.session_state.dias_por_empleado else []
 
-        if LOGO_PATH.exists():
-            elems.append(Image(str(LOGO_PATH), width=120))
-            elems.append(Spacer(1, 10))
+        dias_no_laborables = festivos_obj.union(ausencias)
+        dias_laborables = [d for d in dias_mes if d.weekday() < 5 and d not in dias_no_laborables]
 
-        header = Paragraph(f"<b>Empleado:</b> {r['Empleado']} — {month}/{year}", styles['Heading2'])
-        elems.append(header)
-        elems.append(Spacer(1, 10))
+        objetivo_mes = len(dias_laborables) * HORAS_LABORALES_DIA
+        diferencia = r["total_horas"] - objetivo_mes
+        horas_extra = max(0, diferencia)
 
-        tabla = [
-            ["Total horas", hours_to_hhmm(r["Horas"])],
-            ["Objetivo", hours_to_hhmm(r["Objetivo"])],
-            ["Diferencia", hours_to_hhmm(r["Dif"])],
-            ["Horas extra", hours_to_hhmm(r["Extras"])],
-            ["Días sin fichar", len(r["SinFichar"])]
+        dias_sin_fichar = [d for d in dias_laborables if d not in r["mapa_horas"] or r["mapa_horas"].get(d, 0) == 0]
+
+        global_data.append({
+            "Empleado": nombre,
+            "Horas Totales": r["total_horas"],
+            "Objetivo Mes": objetivo_mes,
+            "Diferencia": diferencia,
+            "Horas Extra": horas_extra,
+            "Dias Sin Fichar": len(dias_sin_fichar),
+            "Fechas Sin Fichar": dias_sin_fichar,
+            "Ausencias": ausencias,
+            "mapa_horas": r["mapa_horas"]
+        })
+
+    st.success("Procesado completado ✔")
+
+    # ---------------------------------------------
+    # DESCARGAS
+    # ---------------------------------------------
+
+    st.subheader("📥 Descargas individuales")
+
+    for r in global_data:
+        pdf_bytes = io.BytesIO()
+        pdf = SimpleDocTemplate(pdf_bytes, pagesize=A4)
+        elements = []
+
+        elements.append(Paragraph(f"<b>{r['Empleado']}</b>", getSampleStyleSheet()["Title"]))
+        elements.append(Spacer(1, 12))
+
+        elements.append(Paragraph("Resumen mensual:", getSampleStyleSheet()["Heading3"]))
+
+        summary = [
+            ["Horas Totales", hours_to_hhmm(r["Horas Totales"])],
+            ["Objetivo", hours_to_hhmm(r["Objetivo Mes"])],
+            ["Diferencia", hours_to_hhmm(r["Diferencia"])],
+            ["Horas Extra", hours_to_hhmm(r["Horas Extra"])],
+            ["Días sin fichar", r["Dias Sin Fichar"]]
         ]
 
-        t = Table(tabla, colWidths=[7*cm, 4*cm])
-        t.setStyle(TableStyle([("GRID",(0,0),(-1,-1),0.5,colors.grey)]))
-        elems.append(t)
+        table = Table(summary)
+        table.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 1, colors.grey)]))
+        elements.append(table)
 
-        elems.append(Spacer(1, 10))
-
-        filas = [["Fecha","Horas","Tipo"]]
-        for d in dias_mes:
-            tipo = "Laborable"
-            if d in festivos:
-                tipo = "Festivo"
-            if d in aus:
-                tipo = next(m for m,v in st.session_state.ausencias.get(r["Empleado"], {}).items() if d in v)
-            if r["Mapa"].get(d, 0) == 0 and tipo=="Laborable":
-                tipo = "Sin fichar"
-
-            filas.append([d.strftime("%d/%m/%Y"), hours_to_hhmm(r["Mapa"].get(d,0)), tipo])
-
-        tt = Table(filas, colWidths=[4*cm,3*cm,6*cm])
-        tt.setStyle(TableStyle([("GRID",(0,0),(-1,-1),0.3,colors.grey)]))
-        elems.append(tt)
-
-        doc.build(elems)
-        bio.seek(0)
-        return bio
-
-
-    # ------------------------------------------------------------
-    # MOSTRAR RESUMEN
-    # ------------------------------------------------------------
-    st.subheader("📊 Resumen Global")
-
-    for r in resumen:
-        color = "#e6ffef"
-        if len(r["SinFichar"]) > 4:
-            color = "#ffdddd"
-        elif len(r["SinFichar"]) > 2:
-            color = "#fff3cd"
-
-        st.markdown(
-            f"<div style='background:{color};padding:8px;border-radius:6px;'>"
-            f"<b>{r['Empleado']}</b> — Total {hours_to_hhmm(r['Horas'])}h — "
-            f"Objetivo {hours_to_hhmm(r['Objetivo'])}h — "
-            f"{len(r['SinFichar'])} días sin fichar"
-            f"</div>", unsafe_allow_html=True
-        )
-
-    # ------------------------------------------------------------
-    # PDF INDIVIDUALES
-    # ------------------------------------------------------------
-    st.subheader("📄 Descargas individuales")
-
-    for r in resumen:
-        pdf = pdf_individual(r)
-        fname = f"Asistencia_{r['Empleado'].replace(' ','_')}_{year}_{month}.pdf"
-
-        with open(folder / fname, "wb") as f:
-            f.write(pdf.getvalue())
+        pdf.build(elements)
+        pdf_bytes.seek(0)
 
         st.download_button(
-            label=f"Descargar {r['Empleado']}",
-            data=pdf.getvalue(),
-            file_name=fname,
-            mime="application/pdf"
+            f"📄 Descargar {r['Empleado']}",
+            data=pdf_bytes,
+            file_name=f"informe_{r['Empleado']}.pdf"
         )
 
-    st.success("✅ Informes generados correctamente")
-
-
+    st.success("Todos los informes están listos ✔")
 
