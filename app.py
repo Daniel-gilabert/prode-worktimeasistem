@@ -1,3 +1,37 @@
+# -----------------------------
+# ACCESO TEMPORAL POR CLAVE
+# -----------------------------
+import streamlit as st
+
+DEFAULT_KEYS = [
+    "PRODE-ADMIN-ADMIN",
+    "PRODE-CAPITALHUMANO-ZMGR",
+    "PRODE-ULTIMAMILLA-DGC",
+    "PRODE-ULTIMAMILLA-JLM"
+]
+
+ADMIN_KEY = "PRODE-ADMIN-ADMIN"
+
+# Session state
+if "activated" not in st.session_state:
+    st.session_state.activated = False
+    st.session_state.current_key = ""
+    st.session_state.is_admin = False
+
+st.sidebar.header("🔐 Acceso temporal")
+clave = st.sidebar.text_input("Introduce tu clave:", type="password")
+if st.sidebar.button("Entrar"):
+    if clave in DEFAULT_KEYS:
+        st.session_state.activated = True
+        st.session_state.current_key = clave
+        st.session_state.is_admin = (clave == ADMIN_KEY)
+        st.sidebar.success("Acceso concedido")
+    else:
+        st.sidebar.error("Clave incorrecta")
+
+if not st.session_state.activated:
+    st.warning("Introduce una clave válida para utilizar la herramienta.")
+    st.stop()
 # app.py
 """
 PRODE WorkTimeAsistem - Streamlit app
@@ -583,3 +617,4 @@ if st.button("⚙️ Procesar datos y generar informes"):
                 st.error(f"Error subiendo {fname} a SharePoint (ver logs)")
 
 st.write("Fin de la app")
+
