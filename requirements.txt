@@ -1,10 +1,10 @@
 streamlit
 pandas
 numpy
-openpyxl
+pdfplumber
 reportlab
+openpyxl
 msal
 requests
-pillow
-python-dateutil
-scikit-learn
+
+
