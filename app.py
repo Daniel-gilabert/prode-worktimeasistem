@@ -4,74 +4,51 @@ PRODE WorkTimeAsistem — ANALIZADOR AUDITABLE 2026
 NO registra fichajes.
 NO modifica datos de origen.
 Analiza Excel / CSV / PDF de terceros para detectar riesgos legales.
+FORMATO OFICIAL: Excel Última Milla (Apellidos y Nombre / Fecha / Tiempo trabajado)
 """
 
 # =============================
 # IMPORTS
 # =============================
-import os
 import io
 import re
 import calendar
 import hashlib
 from datetime import datetime, timedelta, date
 from pathlib import Path
-from itertools import chain
 
 import pandas as pd
 import numpy as np
 import streamlit as st
 import pdfplumber
 
-from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-)
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 
 # =============================
-# CONFIG
+# CONFIGURACIÓN
 # =============================
 APP_NAME = "PRODE WorkTimeAsistem"
+
 HORAS_SEMANALES = 38.5
 HORAS_LABORALES_DIA = HORAS_SEMANALES / 5
 
 BASE_DIR = Path(__file__).parent.resolve()
-BASE_DIR.mkdir(exist_ok=True)
 
 # =============================
-# SESSION STATE INIT (CLAVE)
+# SESSION STATE INIT
 # =============================
 if "activated" not in st.session_state:
     st.session_state.activated = False
-
 if "current_key" not in st.session_state:
     st.session_state.current_key = ""
 
 # =============================
-# HELPERS
+# FUNCIONES AUXILIARES
 # =============================
-def safe_parse_date(x):
-    try:
-        return pd.to_datetime(x).date()
-    except:
-        return None
-
-def time_str_to_hours(s):
-    if pd.isna(s):
-        return np.nan
-    if isinstance(s, (int, float)):
-        return float(s)
-    s = str(s).strip().upper()
-    if ":" in s:
-        h, m = s.split(":")
-        return int(h) + int(m)/60
-    h = re.findall(r"(\d+)H", s)
-    m = re.findall(r"(\d+)M", s)
-    return (int(h[0]) if h else 0) + (int(m[0]) if m else 0)/60
-
 def hours_to_hhmm(h):
     if h is None or (isinstance(h, float) and np.isnan(h)):
         return "0:00"
@@ -82,9 +59,6 @@ def daterange(start, end):
     for n in range((end - start).days + 1):
         yield start + timedelta(n)
 
-# =============================
-# TRAZABILIDAD
-# =============================
 def calcular_hash_archivo(file_obj):
     file_obj.seek(0)
     h = hashlib.sha256(file_obj.read()).hexdigest()
@@ -92,7 +66,7 @@ def calcular_hash_archivo(file_obj):
     return h
 
 # =============================
-# AUDITORÍAS 2026
+# AUDITORÍAS
 # =============================
 def detectar_sobrejornada_diaria(mapa, objetivo):
     return [d for d, h in mapa.items() if h > objetivo]
@@ -103,11 +77,7 @@ def detectar_exceso_semanal(mapa, max_sem):
         y, w, _ = d.isocalendar()
         semanas.setdefault((y, w), 0)
         semanas[(y, w)] += h
-    return [
-        {"año": y, "semana": w, "horas": h}
-        for (y, w), h in semanas.items()
-        if h > max_sem
-    ]
+    return [(y, w, h) for (y, w), h in semanas.items() if h > max_sem]
 
 def detectar_jornadas_sin_pausa(mapa, umbral=6):
     return [d for d, h in mapa.items() if h >= umbral]
@@ -118,7 +88,7 @@ def registrar_auditoria(periodo, usuario, resumen):
         "fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "periodo": periodo,
         "usuario": usuario,
-        "empleados_analizados": len(resumen),
+        "empleados": len(resumen),
         "alertas_sin_fichar": sum(1 for r in resumen if r["Dias Sin Fichaje"] > 0)
     }
     df = pd.DataFrame([fila])
@@ -128,39 +98,14 @@ def registrar_auditoria(periodo, usuario, resumen):
         df.to_csv(path, index=False)
 
 # =============================
-# PARSER PDF (INFORME PRESENCIA)
-# =============================
-def parse_pdf_fichajes(pdf_file):
-    registros = []
-    empleado = None
-    patron = re.compile(r"(\d{2}-\w{3}\.-\d{2}).+?([\dHMS ]+)")
-    with pdfplumber.open(pdf_file) as pdf:
-        for page in pdf.pages:
-            text = page.extract_text() or ""
-            for line in text.split("\n"):
-                if line.startswith("Nombre:"):
-                    empleado = line.replace("Nombre:", "").strip()
-                m = patron.search(line)
-                if m and empleado:
-                    fecha = pd.to_datetime(m.group(1), dayfirst=True, errors="coerce")
-                    horas = time_str_to_hours(m.group(2))
-                    if pd.notna(fecha):
-                        registros.append({
-                            "nombre": empleado,
-                            "fecha": fecha.date(),
-                            "horas": horas
-                        })
-    return pd.DataFrame(registros)
-
-# =============================
-# UI — CABECERA
+# UI CABECERA
 # =============================
 st.set_page_config(page_title=APP_NAME, layout="wide")
 st.title("🏢 PRODE WorkTimeAsistem")
-st.caption("Analizador auditable 2026 — NO registra fichajes · NO modifica datos")
+st.caption("Analizador auditable 2026 · NO registra fichajes · NO modifica datos")
 
 # =============================
-# AUTENTICACIÓN (SIN BLOQUEAR UI)
+# LOGIN SIMPLE
 # =============================
 st.sidebar.header("🔐 Acceso")
 key_input = st.sidebar.text_input("Introduce la clave", type="password")
@@ -171,31 +116,26 @@ if st.sidebar.button("Activar"):
         st.session_state.current_key = key_input.strip()
         st.sidebar.success("Acceso activado ✅")
     else:
-        st.sidebar.error("Introduce una clave válida")
+        st.sidebar.error("Clave no válida")
 
 if not st.session_state.activated:
     st.info("🔒 Introduce una clave en el panel lateral para comenzar.")
-
-# =============================
-# BLOQUEO FUNCIONAL (CORRECTO)
-# =============================
-if not st.session_state.activated:
     st.stop()
 
 # =============================
 # SUBIDA DE ARCHIVO
 # =============================
-st.subheader("📂 Subir archivo de fichajes")
+st.subheader("📂 Subir Excel de fichajes (formato Última Milla)")
 uploaded = st.file_uploader(
-    "Excel / CSV / PDF procedente de la herramienta de fichaje",
-    type=["xlsx", "xls", "csv", "pdf"]
+    "Excel procedente de la herramienta de fichaje",
+    type=["xlsx", "xls"]
 )
 
 if not uploaded:
     st.stop()
 
 # =============================
-# METADATOS DE IMPORTACIÓN
+# METADATOS
 # =============================
 metadata = {
     "archivo": uploaded.name,
@@ -205,47 +145,58 @@ metadata = {
 }
 
 # =============================
-# LECTURA ARCHIVO
+# LECTURA EXCEL (FORMATO DEFINITIVO)
 # =============================
-try:
-    if uploaded.name.lower().endswith(".pdf"):
-        df = parse_pdf_fichajes(uploaded)
-    elif uploaded.name.lower().endswith((".xls", ".xlsx")):
-        raw = pd.read_excel(uploaded)
-        df = pd.DataFrame({
-            "nombre": raw.iloc[:, 0].astype(str).str.strip(),
-            "fecha": pd.to_datetime(raw.iloc[:, 1], errors="coerce").dt.date,
-            "horas": raw.iloc[:, 2].apply(time_str_to_hours)
-        })
-    else:
-        raw = pd.read_csv(uploaded, sep=None, engine="python")
-        df = pd.DataFrame({
-            "nombre": raw.iloc[:, 0].astype(str).str.strip(),
-            "fecha": pd.to_datetime(raw.iloc[:, 1], errors="coerce").dt.date,
-            "horas": raw.iloc[:, 2].apply(time_str_to_hours)
-        })
-except Exception as e:
-    st.error(f"Error leyendo archivo: {e}")
+raw = pd.read_excel(uploaded)
+
+cols = {c.lower().strip(): c for c in raw.columns}
+
+def find_col(posibles):
+    for p in posibles:
+        for k, orig in cols.items():
+            if p in k:
+                return orig
+    return None
+
+col_nombre = find_col(["apellidos y nombre", "apellidos", "nombre"])
+col_fecha = find_col(["fecha"])
+col_horas = find_col(["tiempo trabajado"])
+
+if not col_nombre or not col_fecha or not col_horas:
+    st.error("❌ El Excel no corresponde al formato oficial de Última Milla.")
+    st.error(f"Columnas encontradas: {list(raw.columns)}")
     st.stop()
 
-df = df.dropna(subset=["nombre", "fecha"])
-st.success(f"Registros cargados: {len(df)}")
+df = pd.DataFrame()
+df["nombre"] = raw[col_nombre].astype(str).str.strip()
+df["fecha"] = pd.to_datetime(
+    raw[col_fecha],
+    errors="coerce",
+    dayfirst=True
+).dt.date
+df["horas"] = pd.to_numeric(raw[col_horas], errors="coerce")
+
+df = df.dropna(subset=["nombre", "fecha", "horas"])
+
+st.success(f"Registros válidos cargados: {len(df)}")
 
 # =============================
-# PERIODO
+# PERIODO ANALIZADO
 # =============================
 month = df["fecha"].apply(lambda d: d.month).mode()[0]
 year = df["fecha"].apply(lambda d: d.year).mode()[0]
 periodo = f"{month:02d}/{year}"
+
 st.info(f"📅 Periodo analizado: {periodo}")
 
 # =============================
-# PROCESADO
+# PROCESADO PRINCIPAL
 # =============================
 resumen = []
 
 for nombre, g in df.groupby("nombre"):
     mapa = g.groupby("fecha")["horas"].sum().to_dict()
+
     dias_mes = list(daterange(
         date(year, month, 1),
         date(year, month, calendar.monthrange(year, month)[1])
@@ -266,10 +217,9 @@ for nombre, g in df.groupby("nombre"):
         "Diferencia": diferencia,
         "Horas Extra": horas_extra,
         "Dias Sin Fichaje": len(dias_sin),
-        "Fechas Sin Fichar": dias_sin,
         "Sobrejornada Diaria": detectar_sobrejornada_diaria(mapa, HORAS_LABORALES_DIA),
         "Excesos Semanales": detectar_exceso_semanal(mapa, HORAS_SEMANALES),
-        "Jornadas Sin Pausa": detectar_jornadas_sin_pausa(mapa)
+        "Jornadas Largas": detectar_jornadas_sin_pausa(mapa)
     })
 
 registrar_auditoria(periodo, st.session_state.current_key, resumen)
@@ -314,17 +264,17 @@ def generar_pdf_global(resumen, metadata):
         <font size=9>
         Archivo analizado: {metadata['archivo']}<br/>
         Hash SHA256: {metadata['hash']}<br/>
-        Fecha importación: {metadata['fecha']}<br/>
+        Fecha análisis: {metadata['fecha']}<br/>
         Usuario: {metadata['usuario']}<br/><br/>
-        <b>Nota legal:</b> PRODE WorkTimeAsistem analiza registros generados por sistemas externos.
-        No registra ni modifica fichajes (art. 34.9 ET).
+        <b>Nota legal:</b> Este informe analiza registros generados por un sistema externo de fichaje.
+        PRODE WorkTimeAsistem no registra ni modifica jornadas (art. 34.9 ET).
         </font>
         """,
         styles["Normal"]
     ))
     elems.append(Spacer(1, 12))
 
-    data = [["Empleado", "Horas", "Objetivo", "Días sin fichar"]]
+    data = [["Empleado", "Horas Totales", "Objetivo", "Días sin fichar"]]
     for r in resumen:
         data.append([
             r["Empleado"],
@@ -354,6 +304,4 @@ st.download_button(
     mime="application/pdf"
 )
 
-st.success("✅ Análisis completado y auditoría registrada.")
-
-
+st.success("✅ Análisis completado y auditoría registrada correctamente.")
