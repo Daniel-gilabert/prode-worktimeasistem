@@ -1,5 +1,3 @@
-
-
 # app.py — PRODE WorkTimeAsistem FINAL DEFINITIVO
 
 import io, re, calendar
@@ -191,6 +189,8 @@ st.markdown(f"""
 <div style="background:{COLOR_WARN};padding:6px">⚠ Atención (3-4 días)</div>
 <div style="background:{COLOR_BAD};padding:6px">❌ Crítico (>4 días)</div>
 """, unsafe_allow_html=True)
+
+
 
 
 
