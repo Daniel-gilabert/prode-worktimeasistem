@@ -1,4 +1,4 @@
-# app.py — PRODE WorkTimeAsistem FINAL (festivos automáticos + locales)
+# app.py — PRODE WorkTimeAsistem FINAL (estable)
 
 import io, re, zipfile, calendar
 from datetime import datetime, timedelta, date
@@ -11,11 +11,10 @@ import pdfplumber
 from reportlab.platypus import SimpleDocTemplate, Paragraph
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib import colors
 
-# ======================================================
+# =========================
 # CONFIG
-# ======================================================
+# =========================
 APP_NAME = "PRODE WorkTimeAsistem"
 ADMIN_KEY = "PRODE-ADMIN-ADMIN"
 
@@ -33,9 +32,9 @@ COLOR_OK = "#e6ffef"
 COLOR_WARN = "#fff3cd"
 COLOR_BAD = "#f8d7da"
 
-# ======================================================
+# =========================
 # HELPERS
-# ======================================================
+# =========================
 def hhmm(h):
     m = int(round(h * 60))
     return f"{m//60}:{m%60:02d}"
@@ -46,7 +45,7 @@ def daterange(a, b):
 
 def festivos_nacionales_y_andalucia(year):
     return {
-        date(year,1,1),    # Año nuevo
+        date(year,1,1),    # Año Nuevo
         date(year,1,6),    # Reyes
         date(year,2,28),   # Andalucía
         date(year,5,1),    # Trabajo
@@ -58,9 +57,9 @@ def festivos_nacionales_y_andalucia(year):
         date(year,12,25),  # Navidad
     }
 
-# ======================================================
+# =========================
 # PDF PARSER
-# ======================================================
+# =========================
 def parse_pdf(file):
     rows = []
     emp = None
@@ -83,35 +82,40 @@ def parse_pdf(file):
                     })
     return pd.DataFrame(rows)
 
-# ======================================================
+# =========================
 # STREAMLIT UI
-# ======================================================
+# =========================
 st.set_page_config(page_title=APP_NAME, layout="wide")
 st.title(f"🏢 {APP_NAME}")
 
 with st.expander("📘 Cómo funciona esta herramienta"):
     st.markdown("""
 - Subes PDF, Excel o CSV de fichajes  
-- Se aplican automáticamente los festivos nacionales y de Andalucía  
-- Puedes añadir festivos locales manuales  
+- Se aplican automáticamente los festivos nacionales y de Andalucía del año en curso  
+- Puedes añadir festivos locales (a todos o a empleados concretos)  
 - Vacaciones, permisos y bajas no cuentan como “sin fichar”  
-- Generas informes individuales y un ZIP con todo
+- Generas PDFs individuales y un ZIP con todo
 """)
 
-# ======================================================
-# SESSION STATE
-# ======================================================
+# =========================
+# SESSION STATE SAFE INIT (CLAVE)
+# =========================
+if "user_keys" not in st.session_state:
+    st.session_state.user_keys = DEFAULT_KEYS.copy()
 if "active" not in st.session_state:
     st.session_state.active = False
-    st.session_state.user_keys = DEFAULT_KEYS.copy()
+if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
+if "ausencias" not in st.session_state:
     st.session_state.ausencias = {}
+if "festivos_locales_globales" not in st.session_state:
     st.session_state.festivos_locales_globales = set()
+if "festivos_locales_por_empleado" not in st.session_state:
     st.session_state.festivos_locales_por_empleado = {}
 
-# ======================================================
+# =========================
 # LOGIN
-# ======================================================
+# =========================
 st.sidebar.header("🔐 Acceso")
 k = st.sidebar.text_input("Clave", type="password")
 
@@ -126,9 +130,9 @@ if st.sidebar.button("Activar"):
 if not st.session_state.active:
     st.stop()
 
-# ======================================================
+# =========================
 # ADMIN
-# ======================================================
+# =========================
 if st.session_state.is_admin:
     st.sidebar.subheader("🛠 Administración")
 
@@ -144,9 +148,9 @@ if st.session_state.is_admin:
             st.session_state.user_keys.remove(borrar)
             st.sidebar.warning("Clave eliminada")
 
-# ======================================================
+# =========================
 # UPLOAD
-# ======================================================
+# =========================
 file = st.file_uploader("Sube PDF / Excel / CSV", type=["pdf","xlsx","xls","csv"])
 if not file:
     st.stop()
@@ -162,9 +166,9 @@ st.success(f"Registros cargados: {len(df)}")
 empleados = sorted(df["nombre"].unique())
 st.dataframe(df)
 
-# ======================================================
+# =========================
 # AUSENCIAS
-# ======================================================
+# =========================
 st.subheader("🏖️ Ausencias")
 emp = st.selectbox("Empleado", empleados)
 motivo = st.selectbox("Motivo", ["Vacaciones","Permiso","Baja médica"])
@@ -173,9 +177,9 @@ if st.button("Añadir ausencia") and len(rng)==2:
     st.session_state.ausencias.setdefault(emp, {}).setdefault(motivo, []).extend(list(daterange(*rng)))
     st.success("Ausencia registrada")
 
-# ======================================================
+# =========================
 # FESTIVOS LOCALES
-# ======================================================
+# =========================
 st.subheader("📅 Festivos locales")
 fest = st.date_input("Fecha festiva", [])
 modo = st.radio("Aplicar festivo a:", ["Todos los empleados","Solo empleados seleccionados"])
@@ -189,12 +193,11 @@ if st.button("Añadir festivo local") and fest:
             st.session_state.festivos_locales_por_empleado.setdefault(e, set()).add(fest)
     st.success("Festivo local añadido")
 
-# ======================================================
+# =========================
 # PROCESAR
-# ======================================================
+# =========================
 if st.button("⚙️ Procesar datos y generar informes"):
     with st.spinner("Procesando y generando informes…"):
-
         month = df["fecha"].iloc[0].month
         year = df["fecha"].iloc[0].year
 
@@ -233,7 +236,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
 
                 buf = io.BytesIO()
                 doc = SimpleDocTemplate(buf, pagesize=A4)
-                doc.build([Paragraph(f"{e} — {month}/{year}", getSampleStyleSheet()["Title"])])
+                doc.build([Paragraph(f"{e} — {month}/{year}", getSampleStyleSheet()['Title'])])
                 buf.seek(0)
 
                 pdfs[e] = buf
@@ -253,18 +256,14 @@ if st.button("⚙️ Procesar datos y generar informes"):
 
         st.success("Informes generados correctamente")
 
-# ======================================================
+# =========================
 # LEYENDA
-# ======================================================
+# =========================
 st.subheader("🎨 Leyenda")
 st.markdown(f"""
 <div style="background:{COLOR_OK};padding:6px">✔ Normal (≤2 días sin fichar)</div>
 <div style="background:{COLOR_WARN};padding:6px">⚠ Atención (3–4 días)</div>
 <div style="background:{COLOR_BAD};padding:6px">❌ Crítico (>4 días)</div>
 """, unsafe_allow_html=True)
-
-
-
-
 
 
