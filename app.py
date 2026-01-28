@@ -1,5 +1,4 @@
-
-# app.py — PRODE WorkTimeAsistem (FINAL ESTABLE)
+# app.py — PRODE WorkTimeAsistem (FINAL + UX)
 
 import io, re, calendar
 from datetime import datetime, timedelta, date
@@ -43,14 +42,15 @@ DEFAULT_FESTIVOS = [
 ]
 FESTIVOS_ANDALUCIA = ["2025-02-28"]
 
+INFORMES_DIR = Path("informes")
+INFORMES_DIR.mkdir(exist_ok=True)
+
 # =====================================================
 # HELPERS
 # =====================================================
 def safe_parse_date(x):
-    try:
-        return pd.to_datetime(x).date()
-    except:
-        return None
+    try: return pd.to_datetime(x).date()
+    except: return None
 
 def hours_to_hhmm(h):
     m = int(round(h * 60))
@@ -72,47 +72,34 @@ def parse_pdf_fichajes(pdf):
         r"(\d{2})-([a-z]{3})\.-(\d{2}).*?(\d+)H\s*(\d+)M\s*(\d+)S",
         re.I
     )
-    rows = []
-    empleado = None
+    rows, emp = [], None
 
     with pdfplumber.open(pdf) as p:
         for page in p.pages:
             text = page.extract_text()
-            if not text:
-                continue
+            if not text: continue
             for line in text.split("\n"):
                 if line.startswith("Nombre:"):
-                    empleado = line.replace("Nombre:", "").strip()
-                    continue
-
+                    emp = line.replace("Nombre:", "").strip()
                 m = patron.search(line)
-                if not m or not empleado:
-                    continue
-
-                d, mes, y, h, mi, s = m.groups()
-                fecha = datetime.strptime(
-                    f"{d}/{meses[mes.lower()]}/20{y}",
-                    "%d/%m/%Y"
-                ).date()
-                horas = int(h) + int(mi)/60 + int(s)/3600
-
-                rows.append({
-                    "nombre": empleado,
-                    "fecha": fecha,
-                    "horas": horas
-                })
+                if m and emp:
+                    d, mes, y, h, mi, s = m.groups()
+                    fecha = datetime.strptime(
+                        f"{d}/{meses[mes.lower()]}/20{y}",
+                        "%d/%m/%Y"
+                    ).date()
+                    horas = int(h) + int(mi)/60 + int(s)/3600
+                    rows.append({"nombre": emp, "fecha": fecha, "horas": horas})
 
     return pd.DataFrame(rows)
 
 # =====================================================
-# STREAMLIT UI
+# UI
 # =====================================================
 st.set_page_config(page_title=APP_NAME, layout="wide")
 st.title(f"🏢 {APP_NAME}")
 
-# =====================================================
-# SESSION INIT
-# =====================================================
+# ---------------- SESSION ----------------
 if "activated" not in st.session_state:
     st.session_state.activated = False
     st.session_state.user_keys = DEFAULT_KEYS.copy()
@@ -120,12 +107,9 @@ if "activated" not in st.session_state:
     st.session_state.ausencias = {}
     st.session_state.festivos_personales = {}
 
-# =====================================================
-# LOGIN
-# =====================================================
+# ---------------- LOGIN ----------------
 st.sidebar.header("🔐 Acceso")
-clave = st.sidebar.text_input("Introduce tu clave", type="password")
-
+clave = st.sidebar.text_input("Clave", type="password")
 if st.sidebar.button("Activar"):
     if clave in st.session_state.user_keys:
         st.session_state.activated = True
@@ -137,30 +121,16 @@ if st.sidebar.button("Activar"):
 if not st.session_state.activated:
     st.stop()
 
-# =====================================================
-# ADMIN PANEL
-# =====================================================
+# ---------------- ADMIN ----------------
 if st.session_state.is_admin:
     st.sidebar.subheader("🛠 Administración")
-
     nueva = st.sidebar.text_input("Nueva clave")
     if st.sidebar.button("Añadir clave"):
         if nueva and nueva not in st.session_state.user_keys:
             st.session_state.user_keys.append(nueva)
             st.sidebar.success("Clave añadida")
 
-    eliminar = st.sidebar.selectbox(
-        "Eliminar clave",
-        st.session_state.user_keys
-    )
-    if st.sidebar.button("Eliminar clave"):
-        if eliminar != ADMIN_KEY:
-            st.session_state.user_keys.remove(eliminar)
-            st.sidebar.warning("Clave eliminada")
-
-# =====================================================
-# UPLOAD
-# =====================================================
+# ---------------- UPLOAD ----------------
 uploaded = st.file_uploader(
     "Sube fichero de fichajes (PDF / Excel / CSV)",
     type=["pdf","xlsx","xls","csv"]
@@ -181,73 +151,82 @@ df["fecha"] = pd.to_datetime(df["fecha"]).dt.date
 st.success(f"Registros cargados: {len(df)}")
 st.dataframe(df)
 
-# =====================================================
-# AUSENCIAS
-# =====================================================
+empleados = sorted(df["nombre"].unique())
+
+# ---------------- AUSENCIAS ----------------
 st.subheader("🏖️ Ausencias")
-emp = st.selectbox("Empleado", sorted(df["nombre"].unique()))
+emp_sel = st.selectbox("Empleado", empleados)
 motivo = st.selectbox("Motivo", ["Vacaciones","Permiso","Baja médica"])
-rango = st.date_input("Rango de fechas", [])
+rango = st.date_input("Rango", [])
 
 if st.button("Añadir ausencia") and len(rango) == 2:
-    st.session_state.ausencias.setdefault(emp, {}) \
+    st.session_state.ausencias.setdefault(emp_sel, {}) \
         .setdefault(motivo, []) \
         .extend(list(daterange(rango[0], rango[1])))
     st.success("Ausencia registrada")
 
-# =====================================================
-# FESTIVOS EXTRA
-# =====================================================
-st.subheader("📅 Festivos extra por empleado")
-fest_extra = st.date_input("Festivo extra", [])
+# ---------------- FESTIVOS EXTRA ----------------
+st.subheader("📅 Festivo extra por empleado")
+emp_fest = st.selectbox("Empleado (festivo extra)", empleados, key="fest_emp")
+fest_date = st.date_input("Fecha festiva")
 
-if st.button("Añadir festivo extra") and fest_extra:
-    st.session_state.festivos_personales.setdefault(emp, []).append(fest_extra)
+if st.button("Añadir festivo extra"):
+    st.session_state.festivos_personales.setdefault(emp_fest, []).append(fest_date)
     st.success("Festivo añadido")
+
+# ---------------- LEYENDA ----------------
+st.subheader("🎨 Leyenda de colores")
+st.markdown("""
+- 🟩 **Verde**: correcto (≤ 2 días sin fichar)  
+- 🟨 **Amarillo**: atención (3–4 días sin fichar)  
+- 🟥 **Rojo**: grave (> 4 días sin fichar)  
+""")
 
 # =====================================================
 # PROCESAR
 # =====================================================
 if st.button("⚙️ Procesar datos y generar informes"):
 
-    festivos = {safe_parse_date(f) for f in DEFAULT_FESTIVOS}
-    festivos |= {safe_parse_date(f) for f in FESTIVOS_ANDALUCIA}
+    with st.spinner("Procesando datos y generando informes..."):
 
-    month = df["fecha"].iloc[0].month
-    year = df["fecha"].iloc[0].year
+        festivos = {safe_parse_date(f) for f in DEFAULT_FESTIVOS}
+        festivos |= {safe_parse_date(f) for f in FESTIVOS_ANDALUCIA}
 
-    dias_mes = list(daterange(
-        date(year, month, 1),
-        date(year, month, calendar.monthrange(year, month)[1])
-    ))
+        month = df["fecha"].iloc[0].month
+        year = df["fecha"].iloc[0].year
 
-    st.subheader("📊 Resumen Global")
-
-    for emp, g in df.groupby("nombre"):
-        mapa = g.groupby("fecha")["horas"].sum().to_dict()
-        aus = list(chain.from_iterable(
-            st.session_state.ausencias.get(emp, {}).values()
+        dias_mes = list(daterange(
+            date(year, month, 1),
+            date(year, month, calendar.monthrange(year, month)[1])
         ))
-        fest_emp = set(st.session_state.festivos_personales.get(emp, []))
 
-        dias_no_lab = festivos | set(aus) | fest_emp
-        dias_lab = [d for d in dias_mes if d.weekday() < 5 and d not in dias_no_lab]
+        st.subheader("📊 Resumen Global")
 
-        objetivo = len(dias_lab) * HORAS_LABORALES_DIA
-        total = sum(mapa.values())
-        sin = len([d for d in dias_lab if d not in mapa])
+        for emp, g in df.groupby("nombre"):
+            mapa = g.groupby("fecha")["horas"].sum().to_dict()
+            aus = list(chain.from_iterable(
+                st.session_state.ausencias.get(emp, {}).values()
+            ))
+            fest_emp = set(st.session_state.festivos_personales.get(emp, []))
 
-        color = "#e6ffef" if sin <= 2 else "#fff3cd" if sin <= 4 else "#f8d7da"
+            dias_no_lab = festivos | set(aus) | fest_emp
+            dias_lab = [d for d in dias_mes if d.weekday() < 5 and d not in dias_no_lab]
 
-        st.markdown(
-            f"<div style='background:{color};padding:8px;border-radius:6px'>"
-            f"<b>{emp}</b> — Total {hours_to_hhmm(total)} h | "
-            f"Objetivo {hours_to_hhmm(objetivo)} h | "
-            f"Sin fichar {sin} días</div>",
-            unsafe_allow_html=True
-        )
+            objetivo = len(dias_lab) * HORAS_LABORALES_DIA
+            total = sum(mapa.values())
+            sin = len([d for d in dias_lab if d not in mapa])
 
-    st.success("✅ Proceso completado correctamente")
+            color = "#e6ffef" if sin <= 2 else "#fff3cd" if sin <= 4 else "#f8d7da"
+
+            st.markdown(
+                f"<div style='background:{color};padding:8px;border-radius:6px'>"
+                f"<b>{emp}</b> — Total {hours_to_hhmm(total)} h | "
+                f"Objetivo {hours_to_hhmm(objetivo)} h | "
+                f"Sin fichar {sin} días</div>",
+                unsafe_allow_html=True
+            )
+
+    st.success("✅ Proceso completado")
 
 
 
