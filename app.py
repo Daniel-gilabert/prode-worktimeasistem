@@ -195,11 +195,123 @@ else:
 st.success(f"Registros cargados: {len(df)}")
 st.dataframe(df)
 
-# =============================
-# BOTÓN ORIGINAL (MISMO FLUJO)
-# =============================
 if st.button("⚙️ Procesar datos y generar informes"):
-    st.success("👉 Aquí entra EXACTAMENTE tu lógica anterior")
-    st.write("Festivos, ausencias, alertas y PDFs se ejecutan como antes")
+
+    # =============================
+    # PREPARAR FESTIVOS Y AUSENCIAS
+    # =============================
+    festivos_objetivos = {safe_parse_date(f) for f in DEFAULT_FESTIVOS if safe_parse_date(f)}
+    festivos_objetivos |= {safe_parse_date(f) for f in FESTIVOS_ANDALUCIA if safe_parse_date(f)}
+
+    dias_por_empleado = st.session_state.get("dias_por_empleado", {})
+
+    # =============================
+    # DETECTAR MES / AÑO
+    # =============================
+    month = int(df["fecha"].apply(lambda d: d.month).mode()[0])
+    year = int(df["fecha"].apply(lambda d: d.year).mode()[0])
+
+    dias_mes = list(
+        daterange(
+            date(year, month, 1),
+            date(year, month, calendar.monthrange(year, month)[1])
+        )
+    )
+
+    # =============================
+    # AGRUPAR POR EMPLEADO
+    # =============================
+    resumen_empleados = []
+    for nombre, g in df.groupby("nombre"):
+        mapa = {}
+        s = g.groupby("fecha")["horas"].sum()
+        for d, h in s.items():
+            mapa[d] = float(h) if not pd.isna(h) else 0.0
+
+        resumen_empleados.append({
+            "nombre": nombre,
+            "mapa_horas": mapa,
+            "total_horas": s.sum()
+        })
+
+    # =============================
+    # CALCULO GLOBAL
+    # =============================
+    global_data = []
+
+    for r in resumen_empleados:
+        nombre = r["nombre"]
+        mapa = r["mapa_horas"]
+
+        ausencias = list(
+            chain.from_iterable(dias_por_empleado.get(nombre, {}).values())
+        ) if dias_por_empleado.get(nombre) else []
+
+        dias_no_laborables = set(festivos_objetivos).union(set(ausencias))
+        dias_laborables = [
+            d for d in dias_mes if d.weekday() < 5 and d not in dias_no_laborables
+        ]
+
+        objetivo_mes = len(dias_laborables) * HORAS_LABORALES_DIA
+        horas_totales = r["total_horas"]
+        diferencia = horas_totales - objetivo_mes
+        horas_extra = max(0, diferencia)
+
+        dias_con = len([
+            d for d in dias_laborables
+            if d in mapa and mapa.get(d, 0) > 0
+        ])
+
+        dias_sin_list = [
+            d for d in dias_laborables
+            if d not in mapa or mapa.get(d, 0) == 0
+        ]
+
+        global_data.append({
+            "Empleado": nombre,
+            "Horas Totales": horas_totales,
+            "Objetivo Mes": objetivo_mes,
+            "Diferencia": diferencia,
+            "Horas Extra": horas_extra,
+            "Dias Con Fichaje": dias_con,
+            "Dias Sin Fichaje": len(dias_sin_list),
+            "Fechas Sin Fichar": dias_sin_list,
+            "mapa_horas": mapa,
+            "Ausencias": ausencias
+        })
+
+    # =============================
+    # MOSTRAR RESUMEN EN PANTALLA
+    # =============================
+    st.subheader("📊 Resumen Global")
+
+    for r in global_data:
+        if r["Dias Sin Fichaje"] > 4:
+            color = "#f8d7da"
+        elif r["Dias Sin Fichaje"] > 2:
+            color = "#fff3cd"
+        else:
+            color = "#e6ffef"
+
+        st.markdown(
+            f"<div style='background:{color};padding:8px;border-radius:6px;margin-bottom:6px;'>"
+            f"<b>{r['Empleado']}</b> — "
+            f"Total: {hours_to_hhmm(r['Horas Totales'])} h | "
+            f"Objetivo: {hours_to_hhmm(r['Objetivo Mes'])} h | "
+            f"Sin fichar: {r['Dias Sin Fichaje']} días"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+
+    st.success("✅ Datos procesados correctamente")
+
+    # =============================
+    # AQUÍ YA ENTRA TU GENERACIÓN
+    # DE PDFs INDIVIDUALES Y GLOBAL
+    # (SIN CAMBIAR NI UNA LÍNEA
+    # DE LO QUE YA TENÍAS)
+    # =============================
+
+
 
 
