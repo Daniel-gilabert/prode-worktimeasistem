@@ -214,14 +214,14 @@ if not st.session_state.activated:
 # -----------------------------
 # Upload file
 # -----------------------------
-st.subheader("📂 Subir archivo de fichajes (.xlsx/.csv/.pdf)")
-uploaded = st.file_uploader("Selecciona el archivo", type=["xlsx", "xls", "csv", "pdf"])
+st.subheader("📂 Subir archivo de fichajes (.xlsx/.csv)")
+uploaded = st.file_uploader("Selecciona el archivo", type=["xlsx", "xls", "csv"])
 if not uploaded:
     st.info("Sube tu archivo de fichajes para continuar.")
     st.stop()
 
 # -----------------------------
-# Read file (PDF / Excel / CSV)
+# Read file ( Excel / CSV)
 # -----------------------------
 try:
     if str(uploaded.name).lower().endswith(".pdf"):
@@ -734,5 +734,6 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
