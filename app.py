@@ -148,69 +148,7 @@ def create_month_folder_from_date(year, month):
     folder.mkdir(parents=True, exist_ok=True)
     return folder
 
-# -----------------------------
-# PARSER PDF
-# -----------------------------
-def parse_pdf_fichajes(pdf_file):
-    """
-    Extrae registros desde PDF 'Informe de Control de Presencia' y devuelve
-    DataFrame con columnas: nombre, fecha (date), horas (float)
-    """
-    registros = []
-    empleado_actual = None
 
-    # patrón para líneas como: 03-nov.-25 8:47 17:18 8H 30M 53S
-    patron = re.compile(r"(\d{2}-\w{3}\.-\d{2})\s+(\d{1,2}:\d{2})\s+(\d{1,2}:\d{2})\s+([\dHMS\s]+)")
-
-    # pdfplumber acepta file-like objects y paths
-    with pdfplumber.open(pdf_file) as pdf:
-        for page in pdf.pages:
-            text = page.extract_text()
-            if not text:
-                continue
-            lines = text.split("\n")
-
-            # detectar nombre (línea comienza 'Nombre:')
-            for line in lines:
-                if line.startswith("Nombre:"):
-                    empleado_actual = line.replace("Nombre:", "").strip()
-                    break
-
-            for line in lines:
-                m = patron.search(line)
-                if not m:
-                    continue
-                fecha_raw, entrada, salida, jornada = m.groups()
-
-                try:
-                    fecha = pd.to_datetime(fecha_raw, format="%d-%b.-%y", dayfirst=True).date()
-                except:
-                    # intentar otros formatos sencillos
-                    try:
-                        fecha = pd.to_datetime(fecha_raw, dayfirst=True).date()
-                    except:
-                        continue
-
-                H = re.findall(r"(\d+)H", jornada)
-                M = re.findall(r"(\d+)M", jornada)
-                S = re.findall(r"(\d+)S", jornada)
-
-                horas_num = (
-                    (int(H[0]) if H else 0) +
-                    (int(M[0]) if M else 0) / 60.0 +
-                    (int(S[0]) if S else 0) / 3600.0
-                )
-
-                registros.append({
-                    "nombre": empleado_actual,
-                    "fecha": fecha,
-                    "horas": horas_num
-                })
-
-    if registros:
-        return pd.DataFrame(registros)
-    else:
-        return pd.DataFrame(columns=["nombre","fecha","horas"])
 
 # -----------------------------
 # STREAMLIT UI - CABECERA
@@ -796,4 +734,5 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
