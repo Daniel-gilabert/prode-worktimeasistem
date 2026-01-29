@@ -300,8 +300,7 @@ year = int(df["fecha"].apply(lambda d: d.year).mode()[0])
 meses_sp = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"]
 month_name = meses_sp[month-1].capitalize()
 
-folder = create_month_folder_from_date(year, month)
-st.info(f"Informes se guardarán en: {folder}")
+
 
 # -----------------------------
 # Festivos manuales y ausencias
@@ -734,6 +733,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
