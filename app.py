@@ -1,7 +1,7 @@
 # app.py
 """
 PRODE WorkTimeAsistem - Streamlit app (FINAL)
-- Lee: Excel (.xls/.xlsx), CSV, PDF (Informe de Control de Presencia)
+- Lee: Excel (.xls/.xlsx), CSV (Informe de Control de Presencia)
 - Calcula objetivo mensual, diferencia y horas extra (misma lógica)
 - Genera PDFs individuales y globales con coloreado profesional
 - Activación por clave, gestión de ausencias y festivos
@@ -796,3 +796,4 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
