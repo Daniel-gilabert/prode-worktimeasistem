@@ -305,6 +305,7 @@ month_name = meses_sp[month-1].capitalize()
 # -----------------------------
 # Festivos manuales y ausencias
 # -----------------------------
+
 st.subheader("📅 Festivos adicionales (opcional)")
 empleado_sel = st.selectbox("Empleado", sorted(df["nombre"].unique()))
 festivos_input = st.text_input("Fechas festivas (AAAA-MM-DD, separadas por coma). Dejar vacío si no hay.")
@@ -313,17 +314,31 @@ for token in [t.strip() for t in festivos_input.split(",") if t.strip()]:
     d = safe_parse_date(token)
     if d:
         manual_festivos.append(d)
+festivos_input = st.text_input("Fechas festivas (AAAA-MM-DD, separadas por coma). Dejar vacío si no hay.")
+manual_festivos = []
+for token in [t.strip() for t in festivos_input.split(",") if t.strip()]:
+    d = safe_parse_date(token)
+    if d:
+        manual_festivos.append(d)
 
 st.subheader("🏖️ Registrar ausencias por empleado")
-empleado_sel = st.selectbox("Empleado", sorted(df["nombre"].unique()))
+empleado_ausencia = st.selectbox(
+    "Empleado",
+    sorted(df["nombre"].unique()),
+    key="empleado_ausencias"
+)
+
 motivo_sel = st.selectbox("Motivo", ["Vacaciones", "Permiso", "Baja médica"])
 rango = st.date_input("Rango de fechas (inicio, fin)", [])
 if st.button("➕ Añadir ausencia"):
     if len(rango) == 2:
         desde, hasta = rango
-        st.session_state.dias_por_empleado.setdefault(empleado_sel, {})
-        st.session_state.dias_por_empleado[empleado_sel].setdefault(motivo_sel, [])
-        st.session_state.dias_por_empleado[empleado_sel][motivo_sel].extend(list(daterange(desde, hasta)))
+        st.session_state.dias_por_empleado.setdefault(empleado_ausencia, {})
+
+        st.session_state.dias_por_empleado[empleado_ausencia].setdefault(motivo_sel, [])
+
+        st.session_state.dias_por_empleado[empleado_ausencia][motivo_sel].extend(...)
+
         st.success(f"{motivo_sel} añadida para {empleado_sel} del {desde} al {hasta}")
 
 umbral_alerta = st.sidebar.slider("Umbral días sin fichar (grave)", 1, 10, 3)
@@ -734,6 +749,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
