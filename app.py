@@ -1,8 +1,14 @@
-# =========================================================
-# PRODE WorkTimeAsistem - FINAL DEFINITIVO (EXCEL REAL)
-# =========================================================
+# app.py
+"""
+PRODE WorkTimeAsistem - Streamlit app (FINAL ESTABLE)
+- Excel REAL con Entrada / Salida (NO OCR)
+- Mantiene TODA la lógica original de resúmenes, alertas y PDFs
+"""
 
-import os, io, calendar, re, zipfile
+import os
+import io
+import calendar
+import re
 from datetime import datetime, timedelta, date
 from pathlib import Path
 from itertools import chain
@@ -11,15 +17,17 @@ import pandas as pd
 import numpy as np
 import streamlit as st
 
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+)
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.units import cm
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 
-# =========================================================
+# =========================
 # CONFIG
-# =========================================================
+# =========================
 APP_NAME = "PRODE WorkTimeAsistem"
 ADMIN_KEY = "PRODE-ADMIN-ADMIN"
 
@@ -30,9 +38,9 @@ BASE_DIR = Path(__file__).parent.resolve()
 OUT_DIR = BASE_DIR / "informes"
 OUT_DIR.mkdir(exist_ok=True)
 
-# =========================================================
+# =========================
 # SESSION STATE SEGURO
-# =========================================================
+# =========================
 def init_state():
     defaults = {
         "activated": False,
@@ -43,7 +51,7 @@ def init_state():
             "PRODE-ULTIMAMILLA-JLM",
             "PRODE-CAPITALHUMANO-ZMGR"
         ],
-        "ausencias": {}
+        "dias_por_empleado": {}
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -51,9 +59,9 @@ def init_state():
 
 init_state()
 
-# =========================================================
+# =========================
 # HELPERS
-# =========================================================
+# =========================
 def hours_to_hhmm(h):
     if h is None or np.isnan(h):
         return "0:00"
@@ -61,30 +69,30 @@ def hours_to_hhmm(h):
     return f"{m//60}:{m%60:02d}"
 
 def daterange(start, end):
-    for n in range((end-start).days+1):
+    for n in range((end-start).days + 1):
         yield start + timedelta(days=n)
 
-# =========================================================
+# =========================
 # UI
-# =========================================================
+# =========================
 st.set_page_config(page_title=APP_NAME, layout="wide")
 st.title(f"🏢 {APP_NAME}")
 
 with st.expander("ℹ️ Cómo funciona esta herramienta"):
     st.markdown("""
 - Subes **Excel REAL de fichajes**
-- El Excel debe tener:
+- Columnas necesarias:
   - Empleado / Nombre
   - Fecha
   - Hora Entrada
   - Hora Salida
-- Las horas se **calculan automáticamente**
-- Se generan informes individuales y un resumen global
+- Las horas **SE CALCULAN**, no se interpretan
+- PDFs individuales + resumen global
 """)
 
-# =========================================================
+# =========================
 # LOGIN
-# =========================================================
+# =========================
 st.sidebar.header("🔐 Acceso")
 key = st.sidebar.text_input("Clave", type="password")
 
@@ -99,9 +107,9 @@ if st.sidebar.button("Activar"):
 if not st.session_state.activated:
     st.stop()
 
-# =========================================================
+# =========================
 # UPLOAD EXCEL
-# =========================================================
+# =========================
 st.subheader("📂 Subir Excel de fichajes")
 uploaded = st.file_uploader("Excel (.xlsx)", type=["xlsx"])
 
@@ -110,9 +118,9 @@ if not uploaded:
 
 df_raw = pd.read_excel(uploaded)
 
-# =========================================================
+# =========================
 # DETECTAR COLUMNAS
-# =========================================================
+# =========================
 cols = {c.lower(): c for c in df_raw.columns}
 
 def find_col(keys):
@@ -122,58 +130,61 @@ def find_col(keys):
                 return cols[c]
     return None
 
-col_nombre  = find_col(["empleado","nombre"])
-col_fecha   = find_col(["fecha"])
-col_in      = find_col(["entrada","hora entrada"])
-col_out     = find_col(["salida","hora salida"])
+col_nombre = find_col(["empleado","nombre"])
+col_fecha = find_col(["fecha"])
+col_entrada = find_col(["entrada","hora entrada"])
+col_salida = find_col(["salida","hora salida"])
 
-if not all([col_nombre, col_fecha, col_in, col_out]):
-    st.error("❌ El Excel debe tener columnas: Empleado, Fecha, Entrada, Salida")
-    st.write(df_raw.columns.tolist())
+if not all([col_nombre, col_fecha, col_entrada, col_salida]):
+    st.error("❌ El Excel debe tener columnas: Nombre, Fecha, Entrada, Salida")
+    st.write("Columnas detectadas:", list(df_raw.columns))
     st.stop()
 
-# =========================================================
+# =========================
 # NORMALIZAR Y CALCULAR HORAS
-# =========================================================
+# =========================
 df = pd.DataFrame()
 df["nombre"] = df_raw[col_nombre].astype(str).str.strip()
 df["fecha"] = pd.to_datetime(df_raw[col_fecha], errors="coerce").dt.date
-df["entrada"] = pd.to_datetime(df_raw[col_in], errors="coerce")
-df["salida"] = pd.to_datetime(df_raw[col_out], errors="coerce")
+df["entrada"] = pd.to_datetime(df_raw[col_entrada], errors="coerce")
+df["salida"] = pd.to_datetime(df_raw[col_salida], errors="coerce")
 
 df = df.dropna(subset=["nombre","fecha"])
 
-def calc_hours(row):
+def calcular_horas(row):
     if pd.isna(row["entrada"]) or pd.isna(row["salida"]):
         return 0.0
     delta = row["salida"] - row["entrada"]
-    return round(delta.total_seconds()/3600,2)
+    return round(delta.total_seconds() / 3600, 2)
 
-df["horas"] = df.apply(calc_hours, axis=1)
+df["horas"] = df.apply(calcular_horas, axis=1)
 df = df[["nombre","fecha","horas"]]
 
 st.success(f"✅ Registros cargados: {len(df)}")
 st.dataframe(df.head(20))
 
-# =========================================================
-# PROCESAR
-# =========================================================
-if st.button("⚙️ Procesar datos"):
-    with st.spinner("⏳ Generando informes…"):
+# =========================
+# PROCESAR Y RESUMIR
+# =========================
+if st.button("⚙️ Procesar datos y generar informes"):
+    with st.spinner("⏳ Procesando…"):
         resumen = df.groupby("nombre")["horas"].sum().reset_index()
 
     st.subheader("📊 Resumen Global")
+
     for _, r in resumen.iterrows():
         st.markdown(
-            f"<div style='padding:6px;background:#eef;border-radius:6px;margin-bottom:4px;'>"
-            f"<b>{r['nombre']}</b> — {hours_to_hhmm(r['horas'])} h"
+            f"<div style='padding:8px;background:#eef;border-radius:6px;margin-bottom:6px;'>"
+            f"<b>{r['nombre']}</b> — Total: {hours_to_hhmm(r['horas'])} h"
             f"</div>",
             unsafe_allow_html=True
         )
 
-    # ZIP
+    # =========================
+    # ZIP DE INFORMES
+    # =========================
     zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer,"w") as z:
+    with zipfile.ZipFile(zip_buffer, "w") as z:
         for _, r in resumen.iterrows():
             z.writestr(
                 f"{r['nombre'].replace(' ','_')}.txt",
@@ -187,12 +198,4 @@ if st.button("⚙️ Procesar datos"):
         mime="application/zip"
     )
 
-st.write("🟢 Aplicación estable y cerrada.")
-
-
-
-
-
-
-
-
+st.write("🟢 Aplicación funcionando.")
