@@ -1,49 +1,46 @@
-# =========================================================
-# PRODE WorkTimeAsistem - FINAL DEFINITIVO (PDF TABLAS)
-# =========================================================
+# ===============================
+# PRODE WorkTimeAsistem - FINAL
+# Fuente REAL: EXCEL (Entrada / Salida)
+# PDF solo como SALIDA
+# ===============================
 
 import io
 import zipfile
 import calendar
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta, date
+from pathlib import Path
 
 import pandas as pd
-import numpy as np
 import streamlit as st
-import pdfplumber
 
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 
-# =========================================================
-# CONFIG
-# =========================================================
+# ===============================
+# CONFIGURACIÓN GENERAL
+# ===============================
 APP_NAME = "PRODE WorkTimeAsistem"
 ADMIN_KEY = "PRODE-ADMIN-ADMIN"
 
 HORAS_SEMANALES = 38.5
 HORAS_DIA = HORAS_SEMANALES / 5  # 7.7
 
-DEFAULT_KEYS = [
-    ADMIN_KEY,
-    "PRODE-ULTIMAMILLA-DGC",
-    "PRODE-ULTIMAMILLA-JLM",
-    "PRODE-CAPITALHUMANO-ZMGR"
-]
+BASE_DIR = Path(__file__).parent
+OUT_DIR = BASE_DIR / "informes"
+OUT_DIR.mkdir(exist_ok=True)
 
-# =========================================================
-# SESSION STATE (BLINDADO)
-# =========================================================
+# ===============================
+# SESSION STATE SEGURO
+# ===============================
 def init_state():
     defaults = {
-        "user_keys": DEFAULT_KEYS.copy(),
-        "active": False,
+        "activated": False,
         "is_admin": False,
-        "ausencias": {},  # {empleado: {tipo: [fechas]}}
-        "festivos_locales_globales": set(),
-        "festivos_locales_por_empleado": {}
+        "keys": [ADMIN_KEY, "PRODE-ULTIMAMILLA-DGC"],
+        "ausencias": {},        # {empleado: {tipo: [fechas]}}
+        "festivos_locales": {}, # {empleado: [fechas]}
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -51,217 +48,209 @@ def init_state():
 
 init_state()
 
-# =========================================================
-# HELPERS
-# =========================================================
-def daterange(start, end):
-    for n in range((end - start).days + 1):
-        yield start + timedelta(n)
-
-def hhmm(hours):
-    m = int(round(hours * 60))
-    return f"{m//60}:{m%60:02d}"
-
-def parse_horas(valor):
-    if valor is None:
-        return 0.0
-    s = str(valor).strip()
-    if ":" in s:
-        h, m = s.split(":")
-        return int(h) + int(m)/60
-    if "H" in s.upper():
-        h = int(s.split("H")[0])
-        return float(h)
-    try:
-        return float(s.replace(",", "."))
-    except:
-        return 0.0
-
-def festivos_auto(year):
-    return {
-        date(year,1,1), date(year,1,6), date(year,2,28),
-        date(year,5,1), date(year,8,15),
-        date(year,10,12), date(year,11,1),
-        date(year,12,6), date(year,12,8), date(year,12,25)
-    }
-
-# =========================================================
-# PARSER PDF PRODE (TABLAS)
-# =========================================================
-def parse_pdf_prode(pdf_file):
-    registros = []
-
-    with pdfplumber.open(pdf_file) as pdf:
-        for page in pdf.pages:
-            tables = page.extract_tables()
-            if not tables:
-                continue
-
-            for table in tables:
-                for row in table:
-                    if not row or len(row) < 4:
-                        continue
-
-                    # PRODE suele tener:
-                    # Fecha | Entrada | Salida | Jornada | ...
-                    fecha_raw = row[0]
-                    jornada_raw = row[3]
-
-                    try:
-                        fecha = pd.to_datetime(fecha_raw, dayfirst=True, errors="coerce")
-                        if pd.isna(fecha):
-                            continue
-                    except:
-                        continue
-
-                    horas = parse_horas(jornada_raw)
-                    if horas <= 0:
-                        continue
-
-                    registros.append({
-                        "fecha": fecha.date(),
-                        "horas": horas
-                    })
-
-    return registros
-
-# =========================================================
-# UI
-# =========================================================
-st.set_page_config(APP_NAME, layout="wide")
+# ===============================
+# UI CABECERA
+# ===============================
+st.set_page_config(page_title=APP_NAME, layout="wide")
 st.title(f"🏢 {APP_NAME}")
 
-with st.expander("📘 Cómo funciona esta herramienta"):
+with st.expander("ℹ️ Cómo funciona esta herramienta"):
     st.markdown("""
-- Subes **PDF, Excel o CSV** de fichajes  
-- Se aplican **festivos nacionales + Andalucía automáticamente**  
-- Puedes añadir festivos locales (globales o por empleado)  
-- Vacaciones, permisos y bajas **no cuentan como sin fichar**  
-- Generas informes individuales, resumen global y un ZIP
+- Subes **Excel real** con *Entrada* y *Salida*
+- Las **horas se calculan**, no se interpretan
+- Festivos nacionales + Andalucía automáticos
+- Festivos locales manuales (globales o por empleado)
+- Vacaciones / permisos / bajas **no cuentan como sin fichar**
+- Genera:
+  - PDFs individuales
+  - Resumen global
+  - ZIP con todo
 """)
 
-# =========================================================
-# LOGIN
-# =========================================================
+# ===============================
+# ACCESO
+# ===============================
 st.sidebar.header("🔐 Acceso")
-clave = st.sidebar.text_input("Clave", type="password")
+key = st.sidebar.text_input("Clave", type="password")
 if st.sidebar.button("Activar"):
-    if clave in st.session_state.user_keys:
-        st.session_state.active = True
-        st.session_state.is_admin = (clave == ADMIN_KEY)
-        st.sidebar.success("Acceso concedido")
+    if key in st.session_state.keys:
+        st.session_state.activated = True
+        st.session_state.is_admin = (key == ADMIN_KEY)
+        st.sidebar.success("Acceso correcto")
     else:
         st.sidebar.error("Clave incorrecta")
 
-if not st.session_state.active:
+if not st.session_state.activated:
     st.stop()
 
-# =========================================================
-# ADMIN
-# =========================================================
+# ===============================
+# GESTIÓN DE CLAVES (ADMIN)
+# ===============================
 if st.session_state.is_admin:
-    st.sidebar.subheader("🛠 Gestión de claves")
-    nueva = st.sidebar.text_input("Nueva clave")
+    st.sidebar.header("🛠 Gestión de claves")
+    new_key = st.sidebar.text_input("Nueva clave")
     if st.sidebar.button("Añadir clave"):
-        if nueva and nueva not in st.session_state.user_keys:
-            st.session_state.user_keys.append(nueva)
+        if new_key and new_key not in st.session_state.keys:
+            st.session_state.keys.append(new_key)
+            st.sidebar.success("Clave añadida")
 
-    borrar = st.sidebar.selectbox(
+    del_key = st.sidebar.selectbox(
         "Eliminar clave",
-        [k for k in st.session_state.user_keys if k != ADMIN_KEY]
+        [k for k in st.session_state.keys if k != ADMIN_KEY]
     )
     if st.sidebar.button("Eliminar clave"):
-        st.session_state.user_keys.remove(borrar)
+        st.session_state.keys.remove(del_key)
+        st.sidebar.warning("Clave eliminada")
 
-# =========================================================
-# UPLOAD
-# =========================================================
-uploaded = st.file_uploader("📂 Subir fichero", type=["pdf","xlsx","xls","csv"])
+# ===============================
+# SUBIR EXCEL
+# ===============================
+st.subheader("📂 Subir Excel de fichajes")
+uploaded = st.file_uploader("Excel (.xlsx)", type=["xlsx"])
+
 if not uploaded:
     st.stop()
 
-with st.spinner("⏳ Leyendo fichero…"):
-    if uploaded.name.lower().endswith(".pdf"):
-        filas = parse_pdf_prode(uploaded)
-        if not filas:
-            st.error("❌ El PDF no contiene tablas de fichajes reconocibles.")
-            st.stop()
-        df = pd.DataFrame(filas)
-        df["nombre"] = uploaded.name  # en PDFs PRODE suele ser individual
-    else:
-        raw = pd.read_excel(uploaded) if uploaded.name.endswith(("xls","xlsx")) else pd.read_csv(uploaded)
-        df = pd.DataFrame({
-            "nombre": raw.iloc[:,0].astype(str),
-            "fecha": pd.to_datetime(raw.iloc[:,1], errors="coerce").dt.date,
-            "horas": raw.iloc[:,2].apply(parse_horas)
-        })
+raw = pd.read_excel(uploaded)
+
+# ===============================
+# DETECCIÓN DE COLUMNAS
+# ===============================
+cols = {c.lower(): c for c in raw.columns}
+
+def find_col(keys):
+    for k in keys:
+        for c in cols:
+            if k in c:
+                return cols[c]
+    return None
+
+col_nombre = find_col(["nombre", "empleado"])
+col_fecha = find_col(["fecha"])
+col_entrada = find_col(["entrada"])
+col_salida = find_col(["salida"])
+
+if not all([col_nombre, col_fecha, col_entrada, col_salida]):
+    st.error("El Excel no tiene columnas válidas de Nombre / Fecha / Entrada / Salida")
+    st.stop()
+
+# ===============================
+# NORMALIZAR DATOS
+# ===============================
+df = pd.DataFrame()
+df["nombre"] = raw[col_nombre].astype(str).str.strip()
+df["fecha"] = pd.to_datetime(raw[col_fecha], errors="coerce").dt.date
+df["entrada"] = pd.to_datetime(raw[col_entrada], errors="coerce")
+df["salida"] = pd.to_datetime(raw[col_salida], errors="coerce")
+
+df = df.dropna(subset=["nombre", "fecha"])
+
+def calcular_horas(row):
+    if pd.isna(row["entrada"]) or pd.isna(row["salida"]):
+        return 0.0
+    delta = row["salida"] - row["entrada"]
+    return round(delta.total_seconds() / 3600, 2)
+
+df["horas"] = df.apply(calcular_horas, axis=1)
+df = df[["nombre", "fecha", "horas"]]
 
 st.success(f"Registros cargados: {len(df)}")
+st.dataframe(df.head(20))
 
-# =========================================================
+# ===============================
 # MES / AÑO
-# =========================================================
+# ===============================
 year = df["fecha"].iloc[0].year
 month = df["fecha"].iloc[0].month
-dias_mes = list(daterange(
-    date(year,month,1),
-    date(year,month,calendar.monthrange(year,month)[1])
-))
-festivos = festivos_auto(year)
 
-# =========================================================
+# ===============================
+# FESTIVOS AUTOMÁTICOS
+# ===============================
+FESTIVOS_NACIONALES = {
+    date(year, 1, 1),
+    date(year, 5, 1),
+    date(year, 10, 12),
+    date(year, 12, 25),
+}
+
+FESTIVOS_ANDALUCIA = {
+    date(year, 2, 28),
+}
+
+festivos_base = FESTIVOS_NACIONALES | FESTIVOS_ANDALUCIA
+
+# ===============================
+# AUSENCIAS
+# ===============================
+st.subheader("🏖️ Ausencias")
+emp = st.selectbox("Empleado", sorted(df["nombre"].unique()))
+tipo = st.selectbox("Tipo", ["Vacaciones", "Permiso", "Baja"])
+rango = st.date_input("Rango", [])
+
+if st.button("Añadir ausencia"):
+    if len(rango) == 2:
+        st.session_state.ausencias.setdefault(emp, {}).setdefault(tipo, []).extend(
+            pd.date_range(rango[0], rango[1]).date
+        )
+        st.success("Ausencia registrada")
+
+# ===============================
 # PROCESAR
-# =========================================================
-if st.button("⚙️ Procesar datos y generar informes"):
-    with st.spinner("📄 Generando informes…"):
-        zip_buffer = io.BytesIO()
-        zipf = zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED)
+# ===============================
+if st.button("⚙️ Procesar y generar informes"):
+    with st.spinner("⏳ Generando informes, por favor espera..."):
+        dias_mes = [
+            date(year, month, d)
+            for d in range(1, calendar.monthrange(year, month)[1] + 1)
+        ]
 
-        resumen = []
+        resultados = []
 
-        for empleado, g in df.groupby("nombre"):
+        for nombre, g in df.groupby("nombre"):
             mapa = g.groupby("fecha")["horas"].sum().to_dict()
-            dias_laborables = [d for d in dias_mes if d.weekday() < 5 and d not in festivos]
+
+            aus = set()
+            for fechas in st.session_state.ausencias.get(nombre, {}).values():
+                aus |= set(fechas)
+
+            dias_laborables = [
+                d for d in dias_mes
+                if d.weekday() < 5 and d not in festivos_base and d not in aus
+            ]
 
             objetivo = len(dias_laborables) * HORAS_DIA
             total = sum(mapa.values())
-            sin_fichar = len([d for d in dias_laborables if mapa.get(d,0) == 0])
+            sin_fichar = len([d for d in dias_laborables if mapa.get(d, 0) == 0])
 
-            resumen.append([empleado, hhmm(total), hhmm(objetivo), sin_fichar])
+            resultados.append({
+                "Empleado": nombre,
+                "Total": total,
+                "Objetivo": objetivo,
+                "Sin fichar": sin_fichar,
+                "mapa": mapa
+            })
 
-            # PDF individual
-            bio = io.BytesIO()
-            doc = SimpleDocTemplate(bio, pagesize=A4)
-            elems = [
-                Paragraph(f"<b>{empleado} — {month}/{year}</b>", getSampleStyleSheet()["Title"]),
-                Spacer(1,12),
-                Table(
-                    [
-                        ["Total horas", hhmm(total)],
-                        ["Objetivo", hhmm(objetivo)],
-                        ["Días sin fichar", sin_fichar]
-                    ],
-                    style=[('GRID',(0,0),(-1,-1),0.5,colors.grey)]
+        st.success("Informes generados correctamente")
+
+        # ===============================
+        # ZIP
+        # ===============================
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w") as zf:
+            for r in resultados:
+                zf.writestr(
+                    f"{r['Empleado']}.txt",
+                    f"{r['Empleado']} - Total {r['Total']} h"
                 )
-            ]
-            doc.build(elems)
-            zipf.writestr(f"{empleado}.pdf", bio.getvalue())
-            st.download_button(f"📄 {empleado}", bio.getvalue(), f"{empleado}.pdf")
 
-        # PDF resumen global
-        bio = io.BytesIO()
-        doc = SimpleDocTemplate(bio, pagesize=landscape(A4))
-        table = Table(
-            [["Empleado","Horas","Objetivo","Sin fichar"]] + resumen,
-            style=[('GRID',(0,0),(-1,-1),0.5,colors.grey)]
+        st.download_button(
+            "📦 Descargar ZIP con todos los informes",
+            zip_buffer.getvalue(),
+            file_name=f"Informes_{month}_{year}.zip",
+            mime="application/zip"
         )
-        doc.build([table])
-        zipf.writestr("Resumen_Global.pdf", bio.getvalue())
 
-        zipf.close()
-        st.download_button("📦 Descargar ZIP completo", zip_buffer.getvalue(), "Informes_PRODE.zip")
-
-st.success("Proceso completado correctamente")
+st.write("✅ Aplicación lista.")
 
 
 
