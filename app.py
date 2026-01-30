@@ -567,26 +567,30 @@ if st.button("⚙️ Procesar datos y generar informes"):
         ausencias = entry.get("Ausencias", [])
 
         for d in dias_mes:
-            tipo = "Laborable"
-            if d.weekday() >= 5:
-                tipo = "Fin de semana"
-festivos_personal = set(festivos_objetivos)
-festivos_personal |= set(
-    st.session_state.dias_por_empleado
-        .get(entry["Empleado"], {})
-        .get("Festivo", [])
-)
+    tipo = "Laborable"
 
-            # ausencias concretas
-            for mot, fechas in st.session_state.dias_por_empleado.get(entry['Empleado'], {}).items():
-                if d in fechas:
-                    tipo = mot
+    if d.weekday() >= 5:
+        tipo = "Fin de semana"
 
-            horas = round(mapa.get(d, 0) or 0, 2)
-            if tipo == "Laborable" and horas == 0:
-                tipo = "Sin fichar"
+    if d in festivos_objetivos:
+        tipo = "Festivo"
 
-            table_data.append([d.strftime("%d/%m/%Y"), hours_to_hhmm(horas), tipo])
+    # Ausencias concretas
+    for mot, fechas in st.session_state.dias_por_empleado.get(entry['Empleado'], {}).items():
+        if d in fechas:
+            tipo = mot
+
+    horas = round(mapa.get(d, 0) or 0, 2)
+
+    if tipo == "Laborable" and horas == 0:
+        tipo = "Sin fichar"
+
+    table_data.append([
+        d.strftime("%d/%m/%Y"),
+        hours_to_hhmm(horas),
+        tipo
+    ])
+
 
         t_days = Table(table_data, colWidths=[6*cm, 4*cm, 6*cm], repeatRows=1)
 
@@ -829,6 +833,7 @@ festivos_personal |= set(
     )
 
 st.write("Fin de la app")
+
 
 
 
