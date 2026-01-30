@@ -569,15 +569,15 @@ for d in dias_mes:
     tipo = "Laborable"
 
     if d.weekday() >= 5:
-    tipo = "Fin de semana"
+        tipo = "Fin de semana"
 
     if d in festivos_objetivos:
-    tipo = "Festivo"
+        tipo = "Festivo"
 
     # Ausencias concretas
     for mot, fechas in st.session_state.dias_por_empleado.get(entry["Empleado"], {}).items():
-    if d in fechas:
-        tipo = mot
+        if d in fechas:
+            tipo = mot
 
     horas = round(mapa.get(d, 0) or 0, 2)
 
@@ -835,6 +835,7 @@ for d in dias_mes:
     )
 
 st.write("Fin de la app")
+
 
 
 
