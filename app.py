@@ -412,7 +412,12 @@ if st.button("⚙️ Procesar datos y generar informes"):
 
         dias_fichados = len([d for d in dias_laborables if d in r["mapa_horas"] and (r["mapa_horas"].get(d, 0) > 0)])
         dias_sin_fichar_list = [d for d in dias_laborables if d not in r["mapa_horas"] or r["mapa_horas"].get(d, 0) == 0]
-        dias_sin_fichar = len(dias_sin_fichar_list)
+       415  dias_sin_fichar_list = [
+       d for d in dias_laborables
+         if d not in festivos_personal
+         and (d not in r["mapa_horas"] or r["mapa_horas"].get(d, 0) == 0)
+     ]
+
 
         global_data.append({
             "Empleado": nombre,
@@ -780,6 +785,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
