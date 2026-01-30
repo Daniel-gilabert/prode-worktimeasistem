@@ -567,7 +567,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
         ausencias = entry.get("Ausencias", [])
 
         for d in dias_mes:
-    tipo = "Laborable"
+        tipo = "Laborable"
 
     if d.weekday() >= 5:
         tipo = "Fin de semana"
@@ -833,6 +833,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
