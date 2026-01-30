@@ -54,10 +54,12 @@ DEFAULT_KEYS = [
     "PRODE-ULTIMAMILLA-JLM",
     "PRODE-CAPITALHUMANO-ZMGR"
 ]
+from datetime import datetime, timedelta, date
+
+CURRENT_YEAR = date.today().year
 
 DEFAULT_FESTIVOS = [
     f"{CURRENT_YEAR}-01-01",  # Año Nuevo
-    f"{CURRENT_YEAR}-03-24",  # (ejemplo, ajustable)
     f"{CURRENT_YEAR}-04-17",
     f"{CURRENT_YEAR}-04-18",
     f"{CURRENT_YEAR}-05-01",
@@ -69,6 +71,7 @@ DEFAULT_FESTIVOS = [
 FESTIVOS_ANDALUCIA = [
     f"{CURRENT_YEAR}-02-28"   # Día de Andalucía
 ]
+
 
 
 # COLORES acordados (puedes cambiarlos si quieres)
@@ -764,6 +767,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
