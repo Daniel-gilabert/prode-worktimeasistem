@@ -805,34 +805,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     # -----------------------------
     folder = create_month_folder_from_date(year, month)
 
-    uploaded_files = []
-    for r in global_data:
-        # preparar entry para pdf individual
-        entry = {
-            "Empleado": r["Empleado"],
-            "Horas Totales": r["Horas Totales"],
-            "Objetivo Mes": r["Objetivo Mes"],
-            "Diferencia": r["Diferencia"],
-            "Horas Extra": r["Horas Extra"],
-            "Dias Con Fichaje": r["Dias Con Fichaje"],
-            "Dias Sin Fichaje": r["Dias Sin Fichaje"],
-            "mapa_horas": r["mapa_horas"],
-            "Ausencias": st.session_state.dias_por_empleado.get(r["Empleado"], {})
-        }
-
-        pdf_ind = generate_pdf_individual(entry, year, month, dias_mes)
-        safe_name = r["Empleado"].replace("/", "_").replace("\\", "_").replace(" ", "_")
-        out_path = folder / f"Asistencia_{safe_name}_{year}_{month:02d}.pdf"
-        with open(out_path, "wb") as f:
-            f.write(pdf_ind.getvalue())
-        uploaded_files.append((out_path.name, pdf_ind))
-
-        st.download_button(
-            label=f"📄 Descargar {r['Empleado']}",
-            data=pdf_ind.getvalue(),
-            file_name=out_path.name,
-            mime="application/pdf"
-        )
+ 
 
     pdf_global = generate_pdf_global_report(global_data, month_name, year)
     out_global = folder / f"Resumen_Global_Asistencia_{month_name}_{year}.pdf"
@@ -848,6 +821,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
