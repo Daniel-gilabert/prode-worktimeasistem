@@ -570,7 +570,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
             tipo = "Laborable"
             if d.weekday() >= 5:
                 tipo = "Fin de semana"
-           festivos_personal = set(festivos_objetivos)
+festivos_personal = set(festivos_objetivos)
 festivos_personal |= set(
     st.session_state.dias_por_empleado
         .get(entry["Empleado"], {})
@@ -829,6 +829,7 @@ festivos_personal |= set(
     )
 
 st.write("Fin de la app")
+
 
 
 
