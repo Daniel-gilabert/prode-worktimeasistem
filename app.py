@@ -403,6 +403,8 @@ if manual_festivos:
 # Procesado y generación de datos globales
 # -----------------------------
 if st.button("⚙️ Procesar datos y generar informes"):
+    folder = create_month_folder_from_date(year, month)
+
     resumen_empleados = []
     for nombre, g in df.groupby("nombre"):
         mapa = {}
@@ -844,6 +846,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
