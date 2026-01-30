@@ -472,36 +472,40 @@ if st.button("⚙️ Procesar datos y generar informes"):
                     unsafe_allow_html=True)
 
     # UI summary
-    st.subheader("📊 Resumen Global")
-    for r in global_data:
-        color = "#f8d7da" if r["Dias Sin Fichaje"] > 4 else ("#fff3cd" if r["Dias Sin Fichaje"] > 2 else "#e6ffef")
-       col1, col2 = st.columns([6, 1])
+st.subheader("📊 Resumen Global")
 
-with col1:
-    st.markdown(
-        f"<div style='background:{color};padding:8px;border-radius:6px;'>"
-        f"<b>{r['Empleado']}</b> — Total: {hours_to_hhmm(r['Horas Totales'])} h | "
-        f"Objetivo: {hours_to_hhmm(r['Objetivo Mes'])} h | "
-        f"Sin fichar: {r['Dias Sin Fichaje']} días"
-        f"</div>",
-        unsafe_allow_html=True
+for r in global_data:
+    color = "#f8d7da" if r["Dias Sin Fichaje"] > 4 else (
+        "#fff3cd" if r["Dias Sin Fichaje"] > 2 else "#e6ffef"
     )
 
-with col2:
-    safe_name = r["Empleado"].replace("/", "_").replace("\\", "_").replace(" ", "_")
-    pdf_name = f"Asistencia_{safe_name}_{year}_{month:02d}.pdf"
-    pdf_path = folder / pdf_name
+    col1, col2 = st.columns([6, 1])
 
-    st.download_button(
-        label="⬇",
-        data=open(pdf_path, "rb").read(),
-        file_name=pdf_name,
-        mime="application/pdf",
-        key=f"btn_{safe_name}"
-    )
+    with col1:
+        st.markdown(
+            f"<div style='background:{color};padding:8px;border-radius:6px;'>"
+            f"<b>{r['Empleado']}</b> — "
+            f"Total: {hours_to_hhmm(r['Horas Totales'])} h | "
+            f"Objetivo: {hours_to_hhmm(r['Objetivo Mes'])} h | "
+            f"Sin fichar: {r['Dias Sin Fichaje']} días"
+            f"</div>",
+            unsafe_allow_html=True
+        )
 
+    with col2:
+        safe_name = r["Empleado"].replace("/", "_").replace("\\", "_").replace(" ", "_")
+        pdf_name = f"Asistencia_{safe_name}_{year}_{month:02d}.pdf"
+        pdf_path = folder / pdf_name
 
-    styles = getSampleStyleSheet()
+        if pdf_path.exists():
+            st.download_button(
+                label="⬇",
+                data=pdf_path.read_bytes(),
+                file_name=pdf_name,
+                mime="application/pdf",
+                key=f"btn_{safe_name}"
+            )
+
 
     # -----------------------------
     # PDF Individual (con coloreado diario)
@@ -837,6 +841,7 @@ with col2:
     )
 
 st.write("Fin de la app")
+
 
 
 
