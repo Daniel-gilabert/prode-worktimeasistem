@@ -329,12 +329,25 @@ festivos_input = st.text_input(
     "Fechas festivas (AAAA-MM-DD, separadas por coma). Dejar vacío si no hay.",
     key="festivos_input_por_empleado"
 )
+aplicar_festivos_a_todos = st.checkbox(
+    "Aplicar los festivos manuales a todos los empleados",
+    value=True,
+    key="festivos_todos"
+)
 
 manual_festivos = []
 for token in [t.strip() for t in festivos_input.split(",") if t.strip()]:
     d = safe_parse_date(token)
     if d:
         manual_festivos.append(d)
+if manual_festivos:
+    if aplicar_festivos_a_todos:
+        for d in manual_festivos:
+            festivos_objetivos.add(d)
+    else:
+        st.session_state.dias_por_empleado.setdefault(empleado_festivos, {})
+        st.session_state.dias_por_empleado[empleado_festivos].setdefault("Festivo", [])
+        st.session_state.dias_por_empleado[empleado_festivos]["Festivo"].extend(manual_festivos)
 
 
 st.subheader("🏖️ Registrar ausencias por empleado")
@@ -767,6 +780,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
