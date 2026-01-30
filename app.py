@@ -424,12 +424,18 @@ if st.button("⚙️ Procesar datos y generar informes"):
         festivos_personal = set(festivos_objetivos)
         ausencias = list(chain.from_iterable(st.session_state.dias_por_empleado.get(nombre, {}).values())) if st.session_state.dias_por_empleado.get(nombre) else []
         dias_no_laborables = set(festivos_personal).union(set(ausencias))
-       dias_laborables = [
+   dias_laborables = [
     d for d in dias_mes
-    if d.weekday() < 5
-    and d not in festivos_personal
-    and d not in ausencias
+    if (
+        d.weekday() < 5
+        and (
+            d not in festivos_personal
+            or d in r["mapa_horas"]   # ← SI SE FICHA, CUENTA
+        )
+        and d not in ausencias
+    )
 ]
+
 
 
 
@@ -823,6 +829,7 @@ festivos_personal |= set(
     )
 
 st.write("Fin de la app")
+
 
 
 
