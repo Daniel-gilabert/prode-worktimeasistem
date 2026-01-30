@@ -565,20 +565,19 @@ if st.button("⚙️ Procesar datos y generar informes"):
         table_data = [["Fecha","Horas","Tipo"]]
         mapa = entry["mapa_horas"]
         ausencias = entry.get("Ausencias", [])
-
-        for d in dias_mes:
-        tipo = "Laborable"
+for d in dias_mes:
+    tipo = "Laborable"
 
     if d.weekday() >= 5:
-        tipo = "Fin de semana"
+    tipo = "Fin de semana"
 
     if d in festivos_objetivos:
-        tipo = "Festivo"
+    tipo = "Festivo"
 
     # Ausencias concretas
-    for mot, fechas in st.session_state.dias_por_empleado.get(entry['Empleado'], {}).items():
-        if d in fechas:
-            tipo = mot
+    for mot, fechas in st.session_state.dias_por_empleado.get(entry["Empleado"], {}).items():
+    if d in fechas:
+        tipo = mot
 
     horas = round(mapa.get(d, 0) or 0, 2)
 
@@ -590,6 +589,9 @@ if st.button("⚙️ Procesar datos y generar informes"):
         hours_to_hhmm(horas),
         tipo
     ])
+
+     
+
 
 
         t_days = Table(table_data, colWidths=[6*cm, 4*cm, 6*cm], repeatRows=1)
@@ -833,6 +835,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
