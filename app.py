@@ -606,54 +606,54 @@ t_days.setStyle(TableStyle([
         # 4. Sin fichar -> rojo/amarillo según gravedad (a nivel diario lo marcamos rojo)
         # 5. Horas > HORAS_LABORALES_DIA -> verde (extra)
         # 6. Horas < HORAS_LABORALES_DIA -> naranja (déficit)
-        for i_row in range(1, len(table_data)):
-            row = table_data[i_row]
-            fecha_str = row[0]
-            tipo = row[2]
-            horas_str = row[1]
-            # parse fecha back
-            try:
-                dd = datetime.strptime(fecha_str, "%d/%m/%Y").date()
-            except:
-                dd = None
-
-            # default
-            row_color = colors.whitesmoke
-
-            if tipo in ("Vacaciones", "Permiso", "Baja médica"):
-                if tipo == "Vacaciones":
-                    row_color = colors.HexColor(COLOR_VACACIONES)
-                elif tipo == "Permiso":
-                    row_color = colors.HexColor(COLOR_PERMISO)
-                else:
-                    row_color = colors.HexColor(COLOR_BAJA)
-            elif dd and dd in festivos_objetivos:
-                row_color = colors.HexColor(COLOR_FESTIVO)
-            elif dd and dd.weekday() >= 5:
-                row_color = colors.HexColor("#f0f4f7")  # weekend light
-            else:
-                # horas num
+            for i_row in range(1, len(table_data)):
+                row = table_data[i_row]
+                fecha_str = row[0]
+                tipo = row[2]
+                horas_str = row[1]
+                # parse fecha back
                 try:
-                    h = 0.0
-                    # convert hh:mm string
-                    if ":" in horas_str:
-                        p = horas_str.split(":")
-                        h = int(p[0]) + int(p[1])/60.0
-                    else:
-                        h = float(horas_str)
+                    dd = datetime.strptime(fecha_str, "%d/%m/%Y").date()
                 except:
-                    h = 0.0
-
-                if tipo == "Sin fichar":
-                    row_color = colors.HexColor(COLOR_SIN_GRAVE)
-                elif h > HORAS_LABORALES_DIA:
-                    row_color = colors.HexColor(COLOR_HORA_EXTRA)
-                elif h < HORAS_LABORALES_DIA:
-                    row_color = colors.HexColor(COLOR_DEFICIT)
+                    dd = None
+    
+                # default
+                row_color = colors.whitesmoke
+    
+                if tipo in ("Vacaciones", "Permiso", "Baja médica"):
+                    if tipo == "Vacaciones":
+                        row_color = colors.HexColor(COLOR_VACACIONES)
+                    elif tipo == "Permiso":
+                        row_color = colors.HexColor(COLOR_PERMISO)
+                    else:
+                        row_color = colors.HexColor(COLOR_BAJA)
+                elif dd and dd in festivos_objetivos:
+                    row_color = colors.HexColor(COLOR_FESTIVO)
+                elif dd and dd.weekday() >= 5:
+                    row_color = colors.HexColor("#f0f4f7")  # weekend light
                 else:
-                    row_color = colors.whitesmoke
-
-            t_days.setStyle(TableStyle([('BACKGROUND',(0,i_row),(-1,i_row),row_color)]))
+                    # horas num
+                    try:
+                        h = 0.0
+                        # convert hh:mm string
+                        if ":" in horas_str:
+                            p = horas_str.split(":")
+                            h = int(p[0]) + int(p[1])/60.0
+                        else:
+                            h = float(horas_str)
+                    except:
+                        h = 0.0
+    
+                    if tipo == "Sin fichar":
+                        row_color = colors.HexColor(COLOR_SIN_GRAVE)
+                    elif h > HORAS_LABORALES_DIA:
+                        row_color = colors.HexColor(COLOR_HORA_EXTRA)
+                    elif h < HORAS_LABORALES_DIA:
+                        row_color = colors.HexColor(COLOR_DEFICIT)
+                    else:
+                        row_color = colors.whitesmoke
+    
+                t_days.setStyle(TableStyle([('BACKGROUND',(0,i_row),(-1,i_row),row_color)]))
 
         elems.append(t_days)
         elems.append(Spacer(1, 8))
@@ -829,6 +829,7 @@ t_days.setStyle(TableStyle([
     )
 
 st.write("Fin de la app")
+
 
 
 
