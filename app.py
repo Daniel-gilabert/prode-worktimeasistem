@@ -591,9 +591,6 @@ for d in dias_mes:
     ])
 
      
-
-
-
         t_days = Table(table_data, colWidths=[6*cm, 4*cm, 6*cm], repeatRows=1)
 
         # Base style
@@ -835,6 +832,7 @@ for d in dias_mes:
     )
 
 st.write("Fin de la app")
+
 
 
 
