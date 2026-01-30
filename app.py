@@ -417,6 +417,8 @@ if st.button("⚙️ Procesar datos y generar informes"):
          if d not in festivos_personal
          and (d not in r["mapa_horas"] or r["mapa_horas"].get(d, 0) == 0)
      ]
+        dias_sin_fichar = len(dias_sin_fichar_list)
+
 
 
         global_data.append({
@@ -785,6 +787,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
