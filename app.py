@@ -339,7 +339,23 @@ aplicar_festivos_a_todos = st.checkbox(
     value=True,
     key="festivos_todos"
 )
+if st.button("➕ Añadir festivos"):
+    manual_festivos = []
+    for token in [t.strip() for t in festivos_input.split(",") if t.strip()]:
+        d = safe_parse_date(token)
+        if d:
+            manual_festivos.append(d)
 
+    if manual_festivos:
+        if aplicar_festivos_a_todos:
+            for d in manual_festivos:
+                festivos_objetivos.add(d)
+            st.success("Festivos añadidos a todos los empleados")
+        else:
+            st.session_state.dias_por_empleado.setdefault(empleado_festivos, {})
+            st.session_state.dias_por_empleado[empleado_festivos].setdefault("Festivo", [])
+            st.session_state.dias_por_empleado[empleado_festivos]["Festivo"].extend(manual_festivos)
+            st.success(f"Festivos añadidos a {empleado_festivos}")
 manual_festivos = []
 for token in [t.strip() for t in festivos_input.split(",") if t.strip()]:
     d = safe_parse_date(token)
@@ -800,6 +816,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
