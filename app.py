@@ -307,19 +307,24 @@ month_name = meses_sp[month-1].capitalize()
 # -----------------------------
 
 st.subheader("📅 Festivos adicionales (opcional)")
-empleado_sel = st.selectbox("Empleado", sorted(df["nombre"].unique()))
-festivos_input = st.text_input("Fechas festivas (AAAA-MM-DD, separadas por coma). Dejar vacío si no hay.")
+
+empleado_festivos = st.selectbox(
+    "Empleado",
+    sorted(df["nombre"].unique()),
+    key="empleado_festivos"
+)
+
+festivos_input = st.text_input(
+    "Fechas festivas (AAAA-MM-DD, separadas por coma). Dejar vacío si no hay.",
+    key="festivos_input_por_empleado"
+)
+
 manual_festivos = []
 for token in [t.strip() for t in festivos_input.split(",") if t.strip()]:
     d = safe_parse_date(token)
     if d:
         manual_festivos.append(d)
-festivos_input = st.text_input("Fechas festivas (AAAA-MM-DD, separadas por coma). Dejar vacío si no hay.")
-manual_festivos = []
-for token in [t.strip() for t in festivos_input.split(",") if t.strip()]:
-    d = safe_parse_date(token)
-    if d:
-        manual_festivos.append(d)
+
 
 st.subheader("🏖️ Registrar ausencias por empleado")
 empleado_ausencia = st.selectbox(
@@ -749,6 +754,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
