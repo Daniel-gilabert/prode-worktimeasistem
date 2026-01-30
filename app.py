@@ -747,7 +747,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     with open(out_global, "wb") as f:
         f.write(pdf_global.getvalue())
 
-    st.success(f"✅ Informes generados y guardados en: {folder}")
+    
     st.download_button(
         label="📘 Descargar Resumen Global",
         data=pdf_global.getvalue(),
@@ -756,6 +756,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
