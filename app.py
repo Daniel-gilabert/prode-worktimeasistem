@@ -711,6 +711,8 @@ if st.button("⚙️ Procesar datos y generar informes"):
     # -----------------------------
     # Guardar y ofrecer descargas
     # -----------------------------
+    folder = create_month_folder_from_date(year, month)
+
     uploaded_files = []
     for r in global_data:
         # preparar entry para pdf individual
@@ -754,6 +756,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
