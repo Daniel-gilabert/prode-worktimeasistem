@@ -589,18 +589,15 @@ for d in dias_mes:
         hours_to_hhmm(horas),
         tipo
     ])
-
-     
 t_days = Table(table_data, colWidths=[6*cm, 4*cm, 6*cm], repeatRows=1)
 
-        # Base style
-        t_days.setStyle(TableStyle([
-            ('GRID',(0,0),(-1,-1),0.25,colors.grey),
-            ('BACKGROUND',(0,0),(-1,0),colors.HexColor(COLOR_PRIMARY)),
-            ('TEXTCOLOR',(0,0),(-1,0),colors.white),
-            ('FONTSIZE',(0,0),(-1,-1),9),
-            ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
-        ]))
+t_days.setStyle(TableStyle([
+    ('GRID',(0,0),(-1,-1),0.25,colors.grey),
+    ('BACKGROUND',(0,0),(-1,0),colors.HexColor(COLOR_PRIMARY)),
+    ('TEXTCOLOR',(0,0),(-1,0),colors.white),
+    ('FONTSIZE',(0,0),(-1,-1),9),
+    ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
+]))
 
         # Aplicar coloreado por fila (prioridad):
         # 1. Ausencia (Vacaciones / Permiso / Baja) -> colores específicos
@@ -832,6 +829,7 @@ t_days = Table(table_data, colWidths=[6*cm, 4*cm, 6*cm], repeatRows=1)
     )
 
 st.write("Fin de la app")
+
 
 
 
