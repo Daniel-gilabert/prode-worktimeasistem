@@ -475,10 +475,31 @@ if st.button("⚙️ Procesar datos y generar informes"):
     st.subheader("📊 Resumen Global")
     for r in global_data:
         color = "#f8d7da" if r["Dias Sin Fichaje"] > 4 else ("#fff3cd" if r["Dias Sin Fichaje"] > 2 else "#e6ffef")
-        st.markdown(
-            f"<div style='background:{color};padding:8px;border-radius:6px;margin-bottom:6px;'>"
-            f"<b>{r['Empleado']}</b> — Total: {hours_to_hhmm(r['Horas Totales'])} h | Objetivo: {hours_to_hhmm(r['Objetivo Mes'])} h | Sin fichar: {r['Dias Sin Fichaje']} días"
-            f"</div>", unsafe_allow_html=True)
+       col1, col2 = st.columns([6, 1])
+
+with col1:
+    st.markdown(
+        f"<div style='background:{color};padding:8px;border-radius:6px;'>"
+        f"<b>{r['Empleado']}</b> — Total: {hours_to_hhmm(r['Horas Totales'])} h | "
+        f"Objetivo: {hours_to_hhmm(r['Objetivo Mes'])} h | "
+        f"Sin fichar: {r['Dias Sin Fichaje']} días"
+        f"</div>",
+        unsafe_allow_html=True
+    )
+
+with col2:
+    safe_name = r["Empleado"].replace("/", "_").replace("\\", "_").replace(" ", "_")
+    pdf_name = f"Asistencia_{safe_name}_{year}_{month:02d}.pdf"
+    pdf_path = folder / pdf_name
+
+    st.download_button(
+        label="⬇",
+        data=open(pdf_path, "rb").read(),
+        file_name=pdf_name,
+        mime="application/pdf",
+        key=f"btn_{safe_name}"
+    )
+
 
     styles = getSampleStyleSheet()
 
@@ -816,6 +837,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
