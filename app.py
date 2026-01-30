@@ -56,12 +56,20 @@ DEFAULT_KEYS = [
 ]
 
 DEFAULT_FESTIVOS = [
-    "2025-01-01","2025-03-24","2025-04-17","2025-04-18","2025-05-01",
-    "2025-05-26","2025-06-16","2025-06-23","2025-06-30","2025-07-20",
-    "2025-08-07","2025-08-18","2025-10-13","2025-11-03","2025-11-17",
-    "2025-12-08","2025-12-25"
+    f"{CURRENT_YEAR}-01-01",  # Año Nuevo
+    f"{CURRENT_YEAR}-03-24",  # (ejemplo, ajustable)
+    f"{CURRENT_YEAR}-04-17",
+    f"{CURRENT_YEAR}-04-18",
+    f"{CURRENT_YEAR}-05-01",
+    f"{CURRENT_YEAR}-10-13",
+    f"{CURRENT_YEAR}-12-08",
+    f"{CURRENT_YEAR}-12-25",
 ]
-FESTIVOS_ANDALUCIA = ["2025-02-28"]
+
+FESTIVOS_ANDALUCIA = [
+    f"{CURRENT_YEAR}-02-28"   # Día de Andalucía
+]
+
 
 # COLORES acordados (puedes cambiarlos si quieres)
 COLOR_HORA_EXTRA = "#d8fcd8"     # verde suave
@@ -756,6 +764,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
