@@ -611,13 +611,12 @@ for i_row in range(1, len(table_data)):
     fecha_str = row[0]
     tipo = row[2]
     horas_str = row[1]
-    # parse fecha back
+
     try:
         dd = datetime.strptime(fecha_str, "%d/%m/%Y").date()
     except:
         dd = None
 
-    # default
     row_color = colors.whitesmoke
 
     if tipo in ("Vacaciones", "Permiso", "Baja médica"):
@@ -627,18 +626,18 @@ for i_row in range(1, len(table_data)):
             row_color = colors.HexColor(COLOR_PERMISO)
         else:
             row_color = colors.HexColor(COLOR_BAJA)
+
     elif dd and dd in festivos_objetivos:
         row_color = colors.HexColor(COLOR_FESTIVO)
+
     elif dd and dd.weekday() >= 5:
-        row_color = colors.HexColor("#f0f4f7")  # weekend light
+        row_color = colors.HexColor("#f0f4f7")
+
     else:
-        # horas num
         try:
-            h = 0.0
-            # convert hh:mm string
             if ":" in horas_str:
                 p = horas_str.split(":")
-                h = int(p[0]) + int(p[1])/60.0
+                h = int(p[0]) + int(p[1]) / 60
             else:
                 h = float(horas_str)
         except:
@@ -650,25 +649,11 @@ for i_row in range(1, len(table_data)):
             row_color = colors.HexColor(COLOR_HORA_EXTRA)
         elif h < HORAS_LABORALES_DIA:
             row_color = colors.HexColor(COLOR_DEFICIT)
-        else:
-            row_color = colors.whitesmoke
 
-    t_days.setStyle(TableStyle([('BACKGROUND',(0,i_row),(-1,i_row),row_color)]))
+    t_days.setStyle(TableStyle([
+        ('BACKGROUND', (0, i_row), (-1, i_row), row_color)
+    ]))
 
-elems.append(t_days)
-    elems.append(Spacer(1, 8))
-
-        # Leyenda individual
-        leyenda = [
-            ["Leyenda:", "Horario objetivo diario: " + hours_to_hhmm(HORAS_LABORALES_DIA)],
-            ["Color extra", "Horas Extra (> objetivo)"],
-            ["Color déficit", "Horas < objetivo"],
-            ["Color sin fichar", "Sin fichar / ausencia de registro"],
-            ["Color festivo", "Festivo"],
-            ["Colores ausencias", "Vacaciones / Permiso / Baja médica"]
-        ]
-        l_tab = Table(leyenda, colWidths=[6*cm, 10*cm])
-        l_tab.setStyle(TableStyle([
             ('GRID',(0,0),(-1,-1),0.25,colors.lightgrey),
             ('BACKGROUND',(0,1),(0,1),colors.HexColor(COLOR_HORA_EXTRA)),
             ('BACKGROUND',(0,2),(0,2),colors.HexColor(COLOR_DEFICIT)),
