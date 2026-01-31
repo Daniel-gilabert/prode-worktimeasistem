@@ -56,21 +56,24 @@ DEFAULT_KEYS = [
 ]
 from datetime import datetime, timedelta, date
 
-CURRENT_YEAR = date.today().year
+CURRENT_YEAR = datetime.now().year
 
 DEFAULT_FESTIVOS = [
     f"{CURRENT_YEAR}-01-01",  # Año Nuevo
-    f"{CURRENT_YEAR}-04-17",
-    f"{CURRENT_YEAR}-04-18",
-    f"{CURRENT_YEAR}-05-01",
-    f"{CURRENT_YEAR}-10-13",
-    f"{CURRENT_YEAR}-12-08",
-    f"{CURRENT_YEAR}-12-25",
+    f"{CURRENT_YEAR}-01-06",  # Reyes
+    f"{CURRENT_YEAR}-05-01",  # Día del Trabajo
+    f"{CURRENT_YEAR}-08-15",  # Asunción
+    f"{CURRENT_YEAR}-10-12",  # Fiesta Nacional
+    f"{CURRENT_YEAR}-11-01",  # Todos los Santos
+    f"{CURRENT_YEAR}-12-06",  # Constitución
+    f"{CURRENT_YEAR}-12-08",  # Inmaculada
+    f"{CURRENT_YEAR}-12-25",  # Navidad
 ]
 
 FESTIVOS_ANDALUCIA = [
-    f"{CURRENT_YEAR}-02-28"   # Día de Andalucía
+    f"{CURRENT_YEAR}-02-28"
 ]
+
 
 
 
@@ -336,7 +339,23 @@ aplicar_festivos_a_todos = st.checkbox(
     value=True,
     key="festivos_todos"
 )
+if st.button("➕ Añadir festivos"):
+    manual_festivos = []
+    for token in [t.strip() for t in festivos_input.split(",") if t.strip()]:
+        d = safe_parse_date(token)
+        if d:
+            manual_festivos.append(d)
 
+    if manual_festivos:
+        if aplicar_festivos_a_todos:
+            for d in manual_festivos:
+                festivos_objetivos.add(d)
+            st.success("Festivos añadidos a todos los empleados")
+        else:
+            st.session_state.dias_por_empleado.setdefault(empleado_festivos, {})
+            st.session_state.dias_por_empleado[empleado_festivos].setdefault("Festivo", [])
+            st.session_state.dias_por_empleado[empleado_festivos]["Festivo"].extend(manual_festivos)
+            st.success(f"Festivos añadidos a {empleado_festivos}")
 manual_festivos = []
 for token in [t.strip() for t in festivos_input.split(",") if t.strip()]:
     d = safe_parse_date(token)
@@ -403,7 +422,17 @@ if st.button("⚙️ Procesar datos y generar informes"):
         festivos_personal = set(festivos_objetivos)
         ausencias = list(chain.from_iterable(st.session_state.dias_por_empleado.get(nombre, {}).values())) if st.session_state.dias_por_empleado.get(nombre) else []
         dias_no_laborables = set(festivos_personal).union(set(ausencias))
-        dias_laborables = [d for d in dias_mes if d.weekday() < 5 and d not in dias_no_laborables]
+        dias_laborables = [
+    d for d in dias_mes
+    if (
+        d.weekday() < 5
+        and (
+            d not in dias_no_laborables
+            or d in r["mapa_horas"]  # ← SI SE FICHA, CUENTA
+        )
+    )
+]
+
 
         objetivo_mes = len(dias_laborables) * HORAS_LABORALES_DIA
         horas_totales = r["total_horas"]
@@ -787,6 +816,9 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
+
+
 
 
 
