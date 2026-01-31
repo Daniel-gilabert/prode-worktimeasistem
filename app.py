@@ -56,24 +56,21 @@ DEFAULT_KEYS = [
 ]
 from datetime import datetime, timedelta, date
 
-CURRENT_YEAR = datetime.now().year
+CURRENT_YEAR = date.today().year
 
 DEFAULT_FESTIVOS = [
     f"{CURRENT_YEAR}-01-01",  # Año Nuevo
-    f"{CURRENT_YEAR}-01-06",  # Reyes
-    f"{CURRENT_YEAR}-05-01",  # Día del Trabajo
-    f"{CURRENT_YEAR}-08-15",  # Asunción
-    f"{CURRENT_YEAR}-10-12",  # Fiesta Nacional
-    f"{CURRENT_YEAR}-11-01",  # Todos los Santos
-    f"{CURRENT_YEAR}-12-06",  # Constitución
-    f"{CURRENT_YEAR}-12-08",  # Inmaculada
-    f"{CURRENT_YEAR}-12-25",  # Navidad
+    f"{CURRENT_YEAR}-04-17",
+    f"{CURRENT_YEAR}-04-18",
+    f"{CURRENT_YEAR}-05-01",
+    f"{CURRENT_YEAR}-10-13",
+    f"{CURRENT_YEAR}-12-08",
+    f"{CURRENT_YEAR}-12-25",
 ]
 
 FESTIVOS_ANDALUCIA = [
-    f"{CURRENT_YEAR}-02-28"
+    f"{CURRENT_YEAR}-02-28"   # Día de Andalucía
 ]
-
 
 
 
@@ -339,23 +336,7 @@ aplicar_festivos_a_todos = st.checkbox(
     value=True,
     key="festivos_todos"
 )
-if st.button("➕ Añadir festivos"):
-    manual_festivos = []
-    for token in [t.strip() for t in festivos_input.split(",") if t.strip()]:
-        d = safe_parse_date(token)
-        if d:
-            manual_festivos.append(d)
 
-    if manual_festivos:
-        if aplicar_festivos_a_todos:
-            for d in manual_festivos:
-                festivos_objetivos.add(d)
-            st.success("Festivos añadidos a todos los empleados")
-        else:
-            st.session_state.dias_por_empleado.setdefault(empleado_festivos, {})
-            st.session_state.dias_por_empleado[empleado_festivos].setdefault("Festivo", [])
-            st.session_state.dias_por_empleado[empleado_festivos]["Festivo"].extend(manual_festivos)
-            st.success(f"Festivos añadidos a {empleado_festivos}")
 manual_festivos = []
 for token in [t.strip() for t in festivos_input.split(",") if t.strip()]:
     d = safe_parse_date(token)
@@ -403,8 +384,6 @@ if manual_festivos:
 # Procesado y generación de datos globales
 # -----------------------------
 if st.button("⚙️ Procesar datos y generar informes"):
-    folder = create_month_folder_from_date(year, month)
-
     resumen_empleados = []
     for nombre, g in df.groupby("nombre"):
         mapa = {}
@@ -424,20 +403,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
         festivos_personal = set(festivos_objetivos)
         ausencias = list(chain.from_iterable(st.session_state.dias_por_empleado.get(nombre, {}).values())) if st.session_state.dias_por_empleado.get(nombre) else []
         dias_no_laborables = set(festivos_personal).union(set(ausencias))
-        dias_laborables = [
-            d for d in dias_mes
-            if (
-                d.weekday() < 5
-                and (
-                    d not in festivos_personal
-                    or d in r["mapa_horas"]  # ← SI SE FICHA EN FESTIVO, CUENTA
-                )
-                and d not in ausencias
-            )
-        ]
-
-
-
+        dias_laborables = [d for d in dias_mes if d.weekday() < 5 and d not in dias_no_laborables]
 
         objetivo_mes = len(dias_laborables) * HORAS_LABORALES_DIA
         horas_totales = r["total_horas"]
@@ -476,51 +442,21 @@ if st.button("⚙️ Procesar datos y generar informes"):
                     "<b>⚠️ ALERTAS DE ASISTENCIA: hay empleados con días sin fichar</b></div>",
                     unsafe_allow_html=True)
 
-    # -----------------------------
-    # UI - Resumen Global
-    # -----------------------------
+    # UI summary
     st.subheader("📊 Resumen Global")
-
     for r in global_data:
-        color = "#f8d7da" if r["Dias Sin Fichaje"] > 4 else (
-            "#fff3cd" if r["Dias Sin Fichaje"] > 2 else "#e6ffef"
-        )
+        color = "#f8d7da" if r["Dias Sin Fichaje"] > 4 else ("#fff3cd" if r["Dias Sin Fichaje"] > 2 else "#e6ffef")
+        st.markdown(
+            f"<div style='background:{color};padding:8px;border-radius:6px;margin-bottom:6px;'>"
+            f"<b>{r['Empleado']}</b> — Total: {hours_to_hhmm(r['Horas Totales'])} h | Objetivo: {hours_to_hhmm(r['Objetivo Mes'])} h | Sin fichar: {r['Dias Sin Fichaje']} días"
+            f"</div>", unsafe_allow_html=True)
 
-        col1, col2 = st.columns([6, 1])
-
-        with col1:
-            st.markdown(
-                f"<div style='background:{color};padding:8px;border-radius:6px;'>"
-                f"<b>{r['Empleado']}</b> — "
-                f"Total: {hours_to_hhmm(r['Horas Totales'])} h | "
-                f"Objetivo: {hours_to_hhmm(r['Objetivo Mes'])} h | "
-                f"Sin fichar: {r['Dias Sin Fichaje']} días"
-                f"</div>",
-                unsafe_allow_html=True
-            )
-
-        with col2:
-            safe_name = r["Empleado"].replace("/", "_").replace("\\", "_").replace(" ", "_")
-            pdf_name = f"Asistencia_{safe_name}_{year}_{month:02d}.pdf"
-            pdf_path = folder / pdf_name
-
-            if pdf_path.exists():
-                st.download_button(
-                    label="⬇",
-                    data=pdf_path.read_bytes(),
-                    file_name=pdf_name,
-                    mime="application/pdf",
-                    key=f"btn_{safe_name}"
-                )
-
-
+    styles = getSampleStyleSheet()
 
     # -----------------------------
     # PDF Individual (con coloreado diario)
     # -----------------------------
     def generate_pdf_individual(entry, year, month, dias_mes):
-        styles = getSampleStyleSheet()
-
         bio = io.BytesIO()
         doc = SimpleDocTemplate(bio, pagesize=A4, leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm)
         elems = []
@@ -567,30 +503,21 @@ if st.button("⚙️ Procesar datos y generar informes"):
         ausencias = entry.get("Ausencias", [])
 
         for d in dias_mes:
-        tipo = "Laborable"
+            tipo = "Laborable"
+            if d.weekday() >= 5:
+                tipo = "Fin de semana"
+            if d in festivos_objetivos:
+                tipo = "Festivo"
+            # ausencias concretas
+            for mot, fechas in st.session_state.dias_por_empleado.get(entry['Empleado'], {}).items():
+                if d in fechas:
+                    tipo = mot
 
-    if d.weekday() >= 5:
-        tipo = "Fin de semana"
+            horas = round(mapa.get(d, 0) or 0, 2)
+            if tipo == "Laborable" and horas == 0:
+                tipo = "Sin fichar"
 
-    if d in festivos_objetivos:
-        tipo = "Festivo"
-
-    # Ausencias concretas
-    for mot, fechas in st.session_state.dias_por_empleado.get(entry['Empleado'], {}).items():
-        if d in fechas:
-            tipo = mot
-
-    horas = round(mapa.get(d, 0) or 0, 2)
-
-    if tipo == "Laborable" and horas == 0:
-        tipo = "Sin fichar"
-
-    table_data.append([
-        d.strftime("%d/%m/%Y"),
-        hours_to_hhmm(horas),
-        tipo
-    ])
-
+            table_data.append([d.strftime("%d/%m/%Y"), hours_to_hhmm(horas), tipo])
 
         t_days = Table(table_data, colWidths=[6*cm, 4*cm, 6*cm], repeatRows=1)
 
@@ -817,7 +744,34 @@ if st.button("⚙️ Procesar datos y generar informes"):
     # -----------------------------
     folder = create_month_folder_from_date(year, month)
 
- 
+    uploaded_files = []
+    for r in global_data:
+        # preparar entry para pdf individual
+        entry = {
+            "Empleado": r["Empleado"],
+            "Horas Totales": r["Horas Totales"],
+            "Objetivo Mes": r["Objetivo Mes"],
+            "Diferencia": r["Diferencia"],
+            "Horas Extra": r["Horas Extra"],
+            "Dias Con Fichaje": r["Dias Con Fichaje"],
+            "Dias Sin Fichaje": r["Dias Sin Fichaje"],
+            "mapa_horas": r["mapa_horas"],
+            "Ausencias": st.session_state.dias_por_empleado.get(r["Empleado"], {})
+        }
+
+        pdf_ind = generate_pdf_individual(entry, year, month, dias_mes)
+        safe_name = r["Empleado"].replace("/", "_").replace("\\", "_").replace(" ", "_")
+        out_path = folder / f"Asistencia_{safe_name}_{year}_{month:02d}.pdf"
+        with open(out_path, "wb") as f:
+            f.write(pdf_ind.getvalue())
+        uploaded_files.append((out_path.name, pdf_ind))
+
+        st.download_button(
+            label=f"📄 Descargar {r['Empleado']}",
+            data=pdf_ind.getvalue(),
+            file_name=out_path.name,
+            mime="application/pdf"
+        )
 
     pdf_global = generate_pdf_global_report(global_data, month_name, year)
     out_global = folder / f"Resumen_Global_Asistencia_{month_name}_{year}.pdf"
@@ -833,24 +787,6 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
