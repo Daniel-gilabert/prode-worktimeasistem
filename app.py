@@ -654,23 +654,15 @@ for i_row in range(1, len(table_data)):
         ('BACKGROUND', (0, i_row), (-1, i_row), row_color)
     ]))
 
-            ('GRID',(0,0),(-1,-1),0.25,colors.lightgrey),
-            ('BACKGROUND',(0,1),(0,1),colors.HexColor(COLOR_HORA_EXTRA)),
-            ('BACKGROUND',(0,2),(0,2),colors.HexColor(COLOR_DEFICIT)),
-            ('BACKGROUND',(0,3),(0,3),colors.HexColor(COLOR_SIN_GRAVE)),
-            ('BACKGROUND',(0,4),(0,4),colors.HexColor(COLOR_FESTIVO)),
-            ('BACKGROUND',(0,5),(0,5),colors.HexColor(COLOR_VACACIONES)),
-            ('FONTSIZE',(0,0),(-1,-1),8)
-        ]))
-        elems.append(l_tab)
-        elems.append(Spacer(1,8))
+    elems.append(l_tab)
+    elems.append(Spacer(1,8))
 
-        footer = Paragraph("<para align='center'><font color='#555555'><b>Desarrollado por Daniel Gilabert Cantero</b> — Fundación PRODE</font></para>", styles["Normal"])
-        elems.append(footer)
+    footer = Paragraph("<para align='center'><font color='#555555'><b>Desarrollado por Daniel Gilabert Cantero</b> — Fundación PRODE</font></para>", styles["Normal"])
+    elems.append(footer)
 
-        doc.build(elems)
-        bio.seek(0)
-        return bio
+    doc.build(elems)
+    bio.seek(0)
+    return bio
 
     # -----------------------------
     # PDF GLOBAL (coloreado por empleado)
@@ -814,6 +806,7 @@ for i_row in range(1, len(table_data)):
     )
 
 st.write("Fin de la app")
+
 
 
 
