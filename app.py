@@ -517,6 +517,8 @@ if st.button("⚙️ Procesar datos y generar informes"):
     # PDF Individual (con coloreado diario)
     # -----------------------------
     def generate_pdf_individual(entry, year, month, dias_mes):
+        styles = getSampleStyleSheet()
+
         bio = io.BytesIO()
         doc = SimpleDocTemplate(bio, pagesize=A4, leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm)
         elems = []
@@ -847,6 +849,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
