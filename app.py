@@ -565,8 +565,9 @@ if st.button("⚙️ Procesar datos y generar informes"):
         table_data = [["Fecha","Horas","Tipo"]]
         mapa = entry["mapa_horas"]
         ausencias = entry.get("Ausencias", [])
-for d in dias_mes:
-    tipo = "Laborable"
+
+        for d in dias_mes:
+        tipo = "Laborable"
 
     if d.weekday() >= 5:
         tipo = "Fin de semana"
@@ -575,7 +576,7 @@ for d in dias_mes:
         tipo = "Festivo"
 
     # Ausencias concretas
-    for mot, fechas in st.session_state.dias_por_empleado.get(entry["Empleado"], {}).items():
+    for mot, fechas in st.session_state.dias_por_empleado.get(entry['Empleado'], {}).items():
         if d in fechas:
             tipo = mot
 
@@ -589,15 +590,18 @@ for d in dias_mes:
         hours_to_hhmm(horas),
         tipo
     ])
-t_days = Table(table_data, colWidths=[6*cm, 4*cm, 6*cm], repeatRows=1)
 
-t_days.setStyle(TableStyle([
-    ('GRID',(0,0),(-1,-1),0.25,colors.grey),
-    ('BACKGROUND',(0,0),(-1,0),colors.HexColor(COLOR_PRIMARY)),
-    ('TEXTCOLOR',(0,0),(-1,0),colors.white),
-    ('FONTSIZE',(0,0),(-1,-1),9),
-    ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
-]))
+
+        t_days = Table(table_data, colWidths=[6*cm, 4*cm, 6*cm], repeatRows=1)
+
+        # Base style
+        t_days.setStyle(TableStyle([
+            ('GRID',(0,0),(-1,-1),0.25,colors.grey),
+            ('BACKGROUND',(0,0),(-1,0),colors.HexColor(COLOR_PRIMARY)),
+            ('TEXTCOLOR',(0,0),(-1,0),colors.white),
+            ('FONTSIZE',(0,0),(-1,-1),9),
+            ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
+        ]))
 
         # Aplicar coloreado por fila (prioridad):
         # 1. Ausencia (Vacaciones / Permiso / Baja) -> colores específicos
@@ -606,63 +610,86 @@ t_days.setStyle(TableStyle([
         # 4. Sin fichar -> rojo/amarillo según gravedad (a nivel diario lo marcamos rojo)
         # 5. Horas > HORAS_LABORALES_DIA -> verde (extra)
         # 6. Horas < HORAS_LABORALES_DIA -> naranja (déficit)
-for i_row in range(1, len(table_data)):
-    row = table_data[i_row]
-    fecha_str = row[0]
-    tipo = row[2]
-    horas_str = row[1]
+        for i_row in range(1, len(table_data)):
+            row = table_data[i_row]
+            fecha_str = row[0]
+            tipo = row[2]
+            horas_str = row[1]
+            # parse fecha back
+            try:
+                dd = datetime.strptime(fecha_str, "%d/%m/%Y").date()
+            except:
+                dd = None
 
-    try:
-        dd = datetime.strptime(fecha_str, "%d/%m/%Y").date()
-    except:
-        dd = None
+            # default
+            row_color = colors.whitesmoke
 
-    row_color = colors.whitesmoke
-
-    if tipo in ("Vacaciones", "Permiso", "Baja médica"):
-        if tipo == "Vacaciones":
-            row_color = colors.HexColor(COLOR_VACACIONES)
-        elif tipo == "Permiso":
-            row_color = colors.HexColor(COLOR_PERMISO)
-        else:
-            row_color = colors.HexColor(COLOR_BAJA)
-
-    elif dd and dd in festivos_objetivos:
-        row_color = colors.HexColor(COLOR_FESTIVO)
-
-    elif dd and dd.weekday() >= 5:
-        row_color = colors.HexColor("#f0f4f7")
-
-    else:
-        try:
-            if ":" in horas_str:
-                p = horas_str.split(":")
-                h = int(p[0]) + int(p[1]) / 60
+            if tipo in ("Vacaciones", "Permiso", "Baja médica"):
+                if tipo == "Vacaciones":
+                    row_color = colors.HexColor(COLOR_VACACIONES)
+                elif tipo == "Permiso":
+                    row_color = colors.HexColor(COLOR_PERMISO)
+                else:
+                    row_color = colors.HexColor(COLOR_BAJA)
+            elif dd and dd in festivos_objetivos:
+                row_color = colors.HexColor(COLOR_FESTIVO)
+            elif dd and dd.weekday() >= 5:
+                row_color = colors.HexColor("#f0f4f7")  # weekend light
             else:
-                h = float(horas_str)
-        except:
-            h = 0.0
+                # horas num
+                try:
+                    h = 0.0
+                    # convert hh:mm string
+                    if ":" in horas_str:
+                        p = horas_str.split(":")
+                        h = int(p[0]) + int(p[1])/60.0
+                    else:
+                        h = float(horas_str)
+                except:
+                    h = 0.0
 
-        if tipo == "Sin fichar":
-            row_color = colors.HexColor(COLOR_SIN_GRAVE)
-        elif h > HORAS_LABORALES_DIA:
-            row_color = colors.HexColor(COLOR_HORA_EXTRA)
-        elif h < HORAS_LABORALES_DIA:
-            row_color = colors.HexColor(COLOR_DEFICIT)
+                if tipo == "Sin fichar":
+                    row_color = colors.HexColor(COLOR_SIN_GRAVE)
+                elif h > HORAS_LABORALES_DIA:
+                    row_color = colors.HexColor(COLOR_HORA_EXTRA)
+                elif h < HORAS_LABORALES_DIA:
+                    row_color = colors.HexColor(COLOR_DEFICIT)
+                else:
+                    row_color = colors.whitesmoke
 
-    t_days.setStyle(TableStyle([
-        ('BACKGROUND', (0, i_row), (-1, i_row), row_color)
-    ]))
+            t_days.setStyle(TableStyle([('BACKGROUND',(0,i_row),(-1,i_row),row_color)]))
 
-    elems.append(l_tab)
-    elems.append(Spacer(1,8))
+        elems.append(t_days)
+        elems.append(Spacer(1, 8))
 
-    footer = Paragraph("<para align='center'><font color='#555555'><b>Desarrollado por Daniel Gilabert Cantero</b> — Fundación PRODE</font></para>", styles["Normal"])
-    elems.append(footer)
+        # Leyenda individual
+        leyenda = [
+            ["Leyenda:", "Horario objetivo diario: " + hours_to_hhmm(HORAS_LABORALES_DIA)],
+            ["Color extra", "Horas Extra (> objetivo)"],
+            ["Color déficit", "Horas < objetivo"],
+            ["Color sin fichar", "Sin fichar / ausencia de registro"],
+            ["Color festivo", "Festivo"],
+            ["Colores ausencias", "Vacaciones / Permiso / Baja médica"]
+        ]
+        l_tab = Table(leyenda, colWidths=[6*cm, 10*cm])
+        l_tab.setStyle(TableStyle([
+            ('GRID',(0,0),(-1,-1),0.25,colors.lightgrey),
+            ('BACKGROUND',(0,1),(0,1),colors.HexColor(COLOR_HORA_EXTRA)),
+            ('BACKGROUND',(0,2),(0,2),colors.HexColor(COLOR_DEFICIT)),
+            ('BACKGROUND',(0,3),(0,3),colors.HexColor(COLOR_SIN_GRAVE)),
+            ('BACKGROUND',(0,4),(0,4),colors.HexColor(COLOR_FESTIVO)),
+            ('BACKGROUND',(0,5),(0,5),colors.HexColor(COLOR_VACACIONES)),
+            ('FONTSIZE',(0,0),(-1,-1),8)
+        ]))
+        elems.append(l_tab)
+        elems.append(Spacer(1,8))
 
-    doc.build(elems)
-    bio.seek(0)
-    return bio
+        footer = Paragraph("<para align='center'><font color='#555555'><b>Desarrollado por Daniel Gilabert Cantero</b> — Fundación PRODE</font></para>", styles["Normal"])
+        elems.append(footer)
+
+        doc.build(elems)
+        bio.seek(0)
+        return bio
 
     # -----------------------------
     # PDF GLOBAL (coloreado por empleado)
@@ -806,15 +833,6 @@ for i_row in range(1, len(table_data)):
     )
 
 st.write("Fin de la app")
-
-
-
-
-
-
-
-
-
 
 
 
