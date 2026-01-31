@@ -828,12 +828,6 @@ if st.button("⚙️ Procesar datos y generar informes"):
             f.write(pdf_ind.getvalue())
         uploaded_files.append((out_path.name, pdf_ind))
 
-        st.download_button(
-            label=f"📄 Descargar {r['Empleado']}",
-            data=pdf_ind.getvalue(),
-            file_name=out_path.name,
-            mime="application/pdf"
-        )
 
     pdf_global = generate_pdf_global_report(global_data, month_name, year)
     out_global = folder / f"Resumen_Global_Asistencia_{month_name}_{year}.pdf"
@@ -849,6 +843,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
