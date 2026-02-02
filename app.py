@@ -424,12 +424,20 @@ if manual_festivos:
 # -----------------------------
 if st.button("⚙️ Procesar datos y generar informes"):
     folder = create_month_folder_from_date(year, month)
-    festivos_objetivos = {safe_parse_date(f) for f in DEFAULT_FESTIVOS if safe_parse_date(f)}
-    festivos_objetivos |= {safe_parse_date(f) for f in FESTIVOS_ANDALUCIA if safe_parse_date(f)}
-        if aplicar_festivos_a_todos:
-        for emp_data in st.session_state.dias_por_empleado.values():
-            for d in emp_data.get("Festivo", []):
-                festivos_objetivos.add(d)
+
+    festivos_objetivos = {
+        safe_parse_date(f) for f in DEFAULT_FESTIVOS if safe_parse_date(f)
+    }
+    festivos_objetivos |= {
+        safe_parse_date(f) for f in FESTIVOS_ANDALUCIA if safe_parse_date(f)
+    }
+
+    # 👇 añadir festivos manuales ya guardados
+    for emp_data in st.session_state.dias_por_empleado.values():
+        for d in emp_data.get("Festivo", []):
+            festivos_objetivos.add(d)
+)}
+        
 
 
     resumen_empleados = []
@@ -869,6 +877,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
