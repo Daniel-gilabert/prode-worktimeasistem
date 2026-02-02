@@ -408,20 +408,21 @@ rango = st.date_input("Rango de fechas (inicio, fin)", [])
 if st.button("➕ Añadir ausencia"):
     if len(rango) == 2:
         desde, hasta = rango
+
         st.session_state.dias_por_empleado.setdefault(empleado_ausencia, {})
+        st.session_state.dias_por_empleado[empleado_ausencia].setdefault(motivo_sel, [])
 
- fechas_ausencia = []
-d = desde
-while d <= hasta:
-    fechas_ausencia.append(d)
-    d += timedelta(days=1)
+        fechas_ausencia = []
+        d = desde
+        while d <= hasta:
+            fechas_ausencia.append(d)
+            d += timedelta(days=1)
 
-st.session_state.dias_por_empleado[empleado_ausencia][motivo_sel].extend(fechas_ausencia)
+        st.session_state.dias_por_empleado[empleado_ausencia][motivo_sel].extend(fechas_ausencia)
 
-
-        st.session_state.dias_por_empleado[empleado_ausencia][motivo_sel].extend(...)
-
-        st.success(f"{motivo_sel} añadida para {empleado_sel} del {desde} al {hasta}")
+        st.success(
+            f"{motivo_sel} añadida para {empleado_ausencia} del {desde} al {hasta}"
+        )
 
 umbral_alerta = st.sidebar.slider("Umbral días sin fichar (grave)", 1, 10, 3)
 aplicar_todos_festivos = st.checkbox("Aplicar los festivos manuales a todos los empleados", value=True)
@@ -875,6 +876,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
