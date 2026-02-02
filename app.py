@@ -1,4 +1,5 @@
 
+
 # app.py
 """
 PRODE WorkTimeAsistem - Streamlit app (FINAL)
@@ -9,7 +10,6 @@ PRODE WorkTimeAsistem - Streamlit app (FINAL)
 - Autor: preparado para AMCHÍ / Fundación PRODE
 """
 
-import json
 import os
 import io
 import calendar
@@ -60,7 +60,23 @@ DEFAULT_KEYS = [
 ]
 from datetime import datetime, timedelta, date
 
+CURRENT_YEAR = datetime.now().year
 
+DEFAULT_FESTIVOS = [
+    f"{CURRENT_YEAR}-01-01",  # Año Nuevo
+    f"{CURRENT_YEAR}-01-06",  # Reyes
+    f"{CURRENT_YEAR}-05-01",  # Día del Trabajo
+    f"{CURRENT_YEAR}-08-15",  # Asunción
+    f"{CURRENT_YEAR}-10-12",  # Fiesta Nacional
+    f"{CURRENT_YEAR}-11-01",  # Todos los Santos
+    f"{CURRENT_YEAR}-12-06",  # Constitución
+    f"{CURRENT_YEAR}-12-08",  # Inmaculada
+    f"{CURRENT_YEAR}-12-25",  # Navidad
+]
+
+FESTIVOS_ANDALUCIA = [
+    f"{CURRENT_YEAR}-02-28"
+]
 
 
 
@@ -84,8 +100,6 @@ COLOR_TEXT = "#062A54"
 BASE_DIR = Path(__file__).parent.resolve()
 ASSETS_DIR = BASE_DIR / "assets"
 ASSETS_DIR.mkdir(exist_ok=True)
-KEYS_FILE = BASE_DIR / "keys.json"
-
 
 # -----------------------------
 # HELPERS
@@ -151,17 +165,6 @@ def create_month_folder_from_date(year, month):
     folder = BASE_DIR / "informes" / f"{mes_nombre} {year}"
     folder.mkdir(parents=True, exist_ok=True)
     return folder
-def load_keys():
-    if KEYS_FILE.exists():
-        with open(KEYS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return DEFAULT_KEYS.copy()
-
-
-def save_keys(keys):
-    with open(KEYS_FILE, "w", encoding="utf-8") as f:
-        json.dump(keys, f, indent=2, ensure_ascii=False)
-
 
 
 
@@ -194,8 +197,7 @@ if "activated" not in st.session_state:
     st.session_state.current_key = ""
     st.session_state.is_admin = False
 if "user_keys" not in st.session_state:
-    st.session_state.user_keys = load_keys()
-
+    st.session_state.user_keys = DEFAULT_KEYS.copy()
 if "dias_por_empleado" not in st.session_state:
     st.session_state.dias_por_empleado = {}
 
@@ -217,12 +219,10 @@ if st.session_state.is_admin:
     if st.sidebar.button("➕ Añadir clave"):
         if nueva and nueva not in st.session_state.user_keys:
             st.session_state.user_keys.append(nueva)
-            save_keys(st.session_state.user_keys)
             st.sidebar.success("Clave añadida")
     to_del = st.sidebar.selectbox("Eliminar clave", [k for k in st.session_state.user_keys if k != ADMIN_KEY])
     if st.sidebar.button("🗑️ Eliminar clave"):
         st.session_state.user_keys.remove(to_del)
-        save_keys(st.session_state.user_keys)
         st.sidebar.warning(f"Clave {to_del} eliminada")
 
 if not st.session_state.activated:
@@ -317,27 +317,6 @@ month = int(df["fecha"].apply(lambda d: d.month).mode()[0])
 year = int(df["fecha"].apply(lambda d: d.year).mode()[0])
 meses_sp = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"]
 month_name = meses_sp[month-1].capitalize()
-# -----------------------------
-# Festivos automáticos según el año del Excel
-# -----------------------------
-DEFAULT_FESTIVOS = [
-    date(year, 1, 1),   # Año Nuevo
-    date(year, 1, 6),   # Reyes
-    date(year, 5, 1),   # Día del Trabajo
-    date(year, 8, 15),  # Asunción
-    date(year, 10, 12), # Fiesta Nacional
-    date(year, 11, 1),  # Todos los Santos
-    date(year, 12, 6),  # Constitución
-    date(year, 12, 8),  # Inmaculada
-    date(year, 12, 25), # Navidad
-]
-
-FESTIVOS_ANDALUCIA = [
-    date(year, 2, 28)
-]
-
-festivos_objetivos = set(DEFAULT_FESTIVOS) | set(FESTIVOS_ANDALUCIA)
-
 
 
 
@@ -364,15 +343,31 @@ aplicar_festivos_a_todos = st.checkbox(
     value=True,
     key="festivos_todos"
 )
+if st.button("➕ Añadir festivos"):
+    manual_festivos = []
+    for token in [t.strip() for t in festivos_input.split(",") if t.strip()]:
+        d = safe_parse_date(token)
+        if d:
+            manual_festivos.append(d)
 
+    if manual_festivos:
+        if aplicar_festivos_a_todos:
+            for d in manual_festivos:
+                festivos_objetivos.add(d)
+            st.success("Festivos añadidos a todos los empleados")
+        else:
+            st.session_state.dias_por_empleado.setdefault(empleado_festivos, {})
+            st.session_state.dias_por_empleado[empleado_festivos].setdefault("Festivo", [])
+            st.session_state.dias_por_empleado[empleado_festivos]["Festivo"].extend(manual_festivos)
+            st.success(f"Festivos añadidos a {empleado_festivos}")
+manual_festivos = []
 for token in [t.strip() for t in festivos_input.split(",") if t.strip()]:
     d = safe_parse_date(token)
     if d:
         manual_festivos.append(d)
 
 # Guardar festivos SOLO por empleado (si NO es global)
-if manual_festivos and not st.session_state.get("festivos_todos", True):
-
+if manual_festivos and not aplicar_festivos_a_todos:
     st.session_state.dias_por_empleado.setdefault(empleado_festivos, {})
     st.session_state.dias_por_empleado[empleado_festivos].setdefault("Festivo", [])
     st.session_state.dias_por_empleado[empleado_festivos]["Festivo"].extend(manual_festivos)
@@ -390,31 +385,19 @@ rango = st.date_input("Rango de fechas (inicio, fin)", [])
 if st.button("➕ Añadir ausencia"):
     if len(rango) == 2:
         desde, hasta = rango
-
         st.session_state.dias_por_empleado.setdefault(empleado_ausencia, {})
+
         st.session_state.dias_por_empleado[empleado_ausencia].setdefault(motivo_sel, [])
 
-        fechas_ausencia = []
-        d = desde
-        while d <= hasta:
-            if motivo_sel == "Vacaciones":
-                if d.weekday() < 5:  # lunes-viernes
-                    fechas_ausencia.append(d)
-            else:
-                fechas_ausencia.append(d)
-            d += timedelta(days=1)
+        st.session_state.dias_por_empleado[empleado_ausencia][motivo_sel].extend(...)
 
-
-        st.session_state.dias_por_empleado[empleado_ausencia][motivo_sel].extend(fechas_ausencia)
-
-        st.success(
-            f"{motivo_sel} añadida para {empleado_ausencia} del {desde} al {hasta}"
-        )
+        st.success(f"{motivo_sel} añadida para {empleado_sel} del {desde} al {hasta}")
 
 umbral_alerta = st.sidebar.slider("Umbral días sin fichar (grave)", 1, 10, 3)
 aplicar_todos_festivos = st.checkbox("Aplicar los festivos manuales a todos los empleados", value=True)
 
-
+festivos_objetivos = {safe_parse_date(f) for f in DEFAULT_FESTIVOS if safe_parse_date(f)}
+festivos_objetivos |= {safe_parse_date(f) for f in FESTIVOS_ANDALUCIA if safe_parse_date(f)}
 if manual_festivos:
     if aplicar_todos_festivos:
         for d in manual_festivos:
@@ -425,20 +408,6 @@ if manual_festivos:
 # -----------------------------
 if st.button("⚙️ Procesar datos y generar informes"):
     folder = create_month_folder_from_date(year, month)
-
-    festivos_objetivos = {
-        safe_parse_date(f) for f in DEFAULT_FESTIVOS if safe_parse_date(f)
-    }
-    festivos_objetivos |= {
-        safe_parse_date(f) for f in FESTIVOS_ANDALUCIA if safe_parse_date(f)
-    }
-
-    # 👇 añadir festivos manuales ya guardados
-    for emp_data in st.session_state.dias_por_empleado.values():
-        for d in emp_data.get("Festivo", []):
-            festivos_objetivos.add(d)
-        
-
 
     resumen_empleados = []
     for nombre, g in df.groupby("nombre"):
@@ -877,21 +846,6 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
