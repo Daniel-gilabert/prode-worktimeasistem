@@ -60,23 +60,7 @@ DEFAULT_KEYS = [
 ]
 from datetime import datetime, timedelta, date
 
-CURRENT_YEAR = datetime.now().year
 
-DEFAULT_FESTIVOS = [
-    f"{CURRENT_YEAR}-01-01",  # Año Nuevo
-    f"{CURRENT_YEAR}-01-06",  # Reyes
-    f"{CURRENT_YEAR}-05-01",  # Día del Trabajo
-    f"{CURRENT_YEAR}-08-15",  # Asunción
-    f"{CURRENT_YEAR}-10-12",  # Fiesta Nacional
-    f"{CURRENT_YEAR}-11-01",  # Todos los Santos
-    f"{CURRENT_YEAR}-12-06",  # Constitución
-    f"{CURRENT_YEAR}-12-08",  # Inmaculada
-    f"{CURRENT_YEAR}-12-25",  # Navidad
-]
-
-FESTIVOS_ANDALUCIA = [
-    f"{CURRENT_YEAR}-02-28"
-]
 
 
 
@@ -333,6 +317,27 @@ month = int(df["fecha"].apply(lambda d: d.month).mode()[0])
 year = int(df["fecha"].apply(lambda d: d.year).mode()[0])
 meses_sp = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"]
 month_name = meses_sp[month-1].capitalize()
+# -----------------------------
+# Festivos automáticos según el año del Excel
+# -----------------------------
+DEFAULT_FESTIVOS = [
+    date(year, 1, 1),   # Año Nuevo
+    date(year, 1, 6),   # Reyes
+    date(year, 5, 1),   # Día del Trabajo
+    date(year, 8, 15),  # Asunción
+    date(year, 10, 12), # Fiesta Nacional
+    date(year, 11, 1),  # Todos los Santos
+    date(year, 12, 6),  # Constitución
+    date(year, 12, 8),  # Inmaculada
+    date(year, 12, 25), # Navidad
+]
+
+FESTIVOS_ANDALUCIA = [
+    date(year, 2, 28)
+]
+
+festivos_objetivos = set(DEFAULT_FESTIVOS) | set(FESTIVOS_ANDALUCIA)
+
 
 
 
@@ -863,6 +868,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
