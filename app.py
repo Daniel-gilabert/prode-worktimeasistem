@@ -9,6 +9,7 @@ PRODE WorkTimeAsistem - Streamlit app (FINAL)
 - Autor: preparado para AMCHÍ / Fundación PRODE
 """
 
+import json
 import os
 import io
 import calendar
@@ -99,6 +100,8 @@ COLOR_TEXT = "#062A54"
 BASE_DIR = Path(__file__).parent.resolve()
 ASSETS_DIR = BASE_DIR / "assets"
 ASSETS_DIR.mkdir(exist_ok=True)
+KEYS_FILE = BASE_DIR / "keys.json"
+
 
 # -----------------------------
 # HELPERS
@@ -164,6 +167,16 @@ def create_month_folder_from_date(year, month):
     folder = BASE_DIR / "informes" / f"{mes_nombre} {year}"
     folder.mkdir(parents=True, exist_ok=True)
     return folder
+    def load_keys():
+    if KEYS_FILE.exists():
+        with open(KEYS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return DEFAULT_KEYS.copy()
+
+def save_keys(keys):
+    with open(KEYS_FILE, "w", encoding="utf-8") as f:
+        json.dump(keys, f, indent=2, ensure_ascii=False)
+
 
 
 
@@ -196,7 +209,8 @@ if "activated" not in st.session_state:
     st.session_state.current_key = ""
     st.session_state.is_admin = False
 if "user_keys" not in st.session_state:
-    st.session_state.user_keys = DEFAULT_KEYS.copy()
+    st.session_state.user_keys = load_keys()
+
 if "dias_por_empleado" not in st.session_state:
     st.session_state.dias_por_empleado = {}
 
@@ -218,10 +232,12 @@ if st.session_state.is_admin:
     if st.sidebar.button("➕ Añadir clave"):
         if nueva and nueva not in st.session_state.user_keys:
             st.session_state.user_keys.append(nueva)
+            save_keys(st.session_state.user_keys)
             st.sidebar.success("Clave añadida")
     to_del = st.sidebar.selectbox("Eliminar clave", [k for k in st.session_state.user_keys if k != ADMIN_KEY])
     if st.sidebar.button("🗑️ Eliminar clave"):
         st.session_state.user_keys.remove(to_del)
+          save_keys(st.session_state.user_keys)
         st.sidebar.warning(f"Clave {to_del} eliminada")
 
 if not st.session_state.activated:
@@ -845,6 +861,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
