@@ -412,11 +412,16 @@ if st.button("➕ Añadir ausencia"):
         st.session_state.dias_por_empleado.setdefault(empleado_ausencia, {})
         st.session_state.dias_por_empleado[empleado_ausencia].setdefault(motivo_sel, [])
 
-        fechas_ausencia = []
-        d = desde
-        while d <= hasta:
+       fechas_ausencia = []
+d = desde
+while d <= hasta:
+    if motivo_sel == "Vacaciones":
+        if d.weekday() < 5:  # lunes-viernes
             fechas_ausencia.append(d)
-            d += timedelta(days=1)
+    else:
+        fechas_ausencia.append(d)
+    d += timedelta(days=1)
+
 
         st.session_state.dias_por_empleado[empleado_ausencia][motivo_sel].extend(fechas_ausencia)
 
@@ -876,6 +881,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
