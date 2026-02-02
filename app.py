@@ -167,11 +167,12 @@ def create_month_folder_from_date(year, month):
     folder = BASE_DIR / "informes" / f"{mes_nombre} {year}"
     folder.mkdir(parents=True, exist_ok=True)
     return folder
-    def load_keys():
+  def load_keys():
     if KEYS_FILE.exists():
         with open(KEYS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return DEFAULT_KEYS.copy()
+
 
 def save_keys(keys):
     with open(KEYS_FILE, "w", encoding="utf-8") as f:
@@ -861,6 +862,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
