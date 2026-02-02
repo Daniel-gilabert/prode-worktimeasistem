@@ -359,6 +359,8 @@ aplicar_festivos_a_todos = st.checkbox(
     value=True,
     key="festivos_todos"
 )
+festivos_objetivos = {safe_parse_date(f) for f in DEFAULT_FESTIVOS if safe_parse_date(f)}
+festivos_objetivos |= {safe_parse_date(f) for f in FESTIVOS_ANDALUCIA if safe_parse_date(f)}
 if st.button("➕ Añadir festivos"):
     manual_festivos = []
     for token in [t.strip() for t in festivos_input.split(",") if t.strip()]:
@@ -412,8 +414,7 @@ if st.button("➕ Añadir ausencia"):
 umbral_alerta = st.sidebar.slider("Umbral días sin fichar (grave)", 1, 10, 3)
 aplicar_todos_festivos = st.checkbox("Aplicar los festivos manuales a todos los empleados", value=True)
 
-festivos_objetivos = {safe_parse_date(f) for f in DEFAULT_FESTIVOS if safe_parse_date(f)}
-festivos_objetivos |= {safe_parse_date(f) for f in FESTIVOS_ANDALUCIA if safe_parse_date(f)}
+
 if manual_festivos:
     if aplicar_todos_festivos:
         for d in manual_festivos:
@@ -862,6 +863,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
