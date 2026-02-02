@@ -436,7 +436,6 @@ if st.button("⚙️ Procesar datos y generar informes"):
     for emp_data in st.session_state.dias_por_empleado.values():
         for d in emp_data.get("Festivo", []):
             festivos_objetivos.add(d)
-}
         
 
 
@@ -877,6 +876,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
