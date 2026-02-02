@@ -404,7 +404,7 @@ if st.button("➕ Añadir ausencia"):
       
 
 
-        st.success(f"{motivo_sel} añadida para {empleado_sel} del {desde} al {hasta}")
+       
 
 umbral_alerta = st.sidebar.slider("Umbral días sin fichar (grave)", 1, 10, 3)
 aplicar_todos_festivos = st.checkbox("Aplicar los festivos manuales a todos los empleados", value=True)
@@ -859,6 +859,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
