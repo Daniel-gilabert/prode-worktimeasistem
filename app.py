@@ -238,7 +238,7 @@ if st.session_state.is_admin:
     to_del = st.sidebar.selectbox("Eliminar clave", [k for k in st.session_state.user_keys if k != ADMIN_KEY])
     if st.sidebar.button("🗑️ Eliminar clave"):
         st.session_state.user_keys.remove(to_del)
-          save_keys(st.session_state.user_keys)
+        save_keys(st.session_state.user_keys)
         st.sidebar.warning(f"Clave {to_del} eliminada")
 
 if not st.session_state.activated:
@@ -862,6 +862,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
