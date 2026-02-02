@@ -402,7 +402,7 @@ if st.button("➕ Añadir ausencia"):
 
 
       
-)
+
 
         st.success(f"{motivo_sel} añadida para {empleado_sel} del {desde} al {hasta}")
 
@@ -859,6 +859,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
