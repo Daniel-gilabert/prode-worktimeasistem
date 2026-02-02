@@ -364,26 +364,7 @@ aplicar_festivos_a_todos = st.checkbox(
     value=True,
     key="festivos_todos"
 )
-festivos_objetivos = {safe_parse_date(f) for f in DEFAULT_FESTIVOS if safe_parse_date(f)}
-festivos_objetivos |= {safe_parse_date(f) for f in FESTIVOS_ANDALUCIA if safe_parse_date(f)}
-if st.button("➕ Añadir festivos"):
-    manual_festivos = []
-    for token in [t.strip() for t in festivos_input.split(",") if t.strip()]:
-        d = safe_parse_date(token)
-        if d:
-            manual_festivos.append(d)
 
-    if manual_festivos:
-        if aplicar_festivos_a_todos:
-            for d in manual_festivos:
-                festivos_objetivos.add(d)
-            st.success("Festivos añadidos a todos los empleados")
-        else:
-            st.session_state.dias_por_empleado.setdefault(empleado_festivos, {})
-            st.session_state.dias_por_empleado[empleado_festivos].setdefault("Festivo", [])
-            st.session_state.dias_por_empleado[empleado_festivos]["Festivo"].extend(manual_festivos)
-            st.success(f"Festivos añadidos a {empleado_festivos}")
-manual_festivos = []
 for token in [t.strip() for t in festivos_input.split(",") if t.strip()]:
     d = safe_parse_date(token)
     if d:
@@ -443,6 +424,13 @@ if manual_festivos:
 # -----------------------------
 if st.button("⚙️ Procesar datos y generar informes"):
     folder = create_month_folder_from_date(year, month)
+    festivos_objetivos = {safe_parse_date(f) for f in DEFAULT_FESTIVOS if safe_parse_date(f)}
+    festivos_objetivos |= {safe_parse_date(f) for f in FESTIVOS_ANDALUCIA if safe_parse_date(f)}
+        if aplicar_festivos_a_todos:
+        for emp_data in st.session_state.dias_por_empleado.values():
+            for d in emp_data.get("Festivo", []):
+                festivos_objetivos.add(d)
+
 
     resumen_empleados = []
     for nombre, g in df.groupby("nombre"):
@@ -881,6 +869,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
