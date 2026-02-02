@@ -371,7 +371,8 @@ for token in [t.strip() for t in festivos_input.split(",") if t.strip()]:
         manual_festivos.append(d)
 
 # Guardar festivos SOLO por empleado (si NO es global)
-if manual_festivos and not aplicar_festivos_a_todos:
+if manual_festivos and not st.session_state.get("festivos_todos", True):
+
     st.session_state.dias_por_empleado.setdefault(empleado_festivos, {})
     st.session_state.dias_por_empleado[empleado_festivos].setdefault("Festivo", [])
     st.session_state.dias_por_empleado[empleado_festivos]["Festivo"].extend(manual_festivos)
@@ -876,6 +877,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
