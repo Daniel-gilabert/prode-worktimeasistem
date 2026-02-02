@@ -54,6 +54,8 @@ DEFAULT_KEYS = [
     "PRODE-ULTIMAMILLA-DGC",
     "PRODE-ULTIMAMILLA-JLM",
     "PRODE-CAPITALHUMANO-ZMGR"
+    "PRODE-JMV"
+    "PRODE-JCY"
 ]
 from datetime import datetime, timedelta, date
 
@@ -843,6 +845,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
