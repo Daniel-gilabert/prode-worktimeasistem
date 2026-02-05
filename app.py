@@ -473,7 +473,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     alertas = []
 
     for r in resumen_empleados:
-                nombre = r["nombre"]
+        nombre = r["nombre"]
 
         horas_semanales_emp = st.session_state.jornada_por_empleado.get(nombre, 38.5)
         horas_diarias_emp = horas_semanales_emp / 5
@@ -919,6 +919,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
