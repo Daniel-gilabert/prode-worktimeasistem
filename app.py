@@ -488,25 +488,33 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 ]
 
-
+# --- Jornada laboral por empleado ---
 horas_semanales_emp = st.session_state.jornada_por_empleado.get(nombre, 38.5)
 horas_diarias_emp = horas_semanales_emp / 5
 
+# --- Objetivo mensual ---
 objetivo_mes = len(dias_laborables) * horas_diarias_emp
 
+# --- Cálculos principales ---
 horas_totales = r["total_horas"]
 diferencia = horas_totales - objetivo_mes
 horas_extra = max(0.0, diferencia)
 
-dias_fichados = len([d for d in dias_laborables if d in r["mapa_horas"] and (r["mapa_horas"].get(d, 0) > 0)])
-dias_sin_fichar_list = [d for d in dias_laborables if d not in r["mapa_horas"] or r["mapa_horas"].get(d, 0) == 0]
-dias_sin_fichar_list = [
-       d for d in dias_laborables
-         if d not in festivos_personal
-         and (d not in r["mapa_horas"] or r["mapa_horas"].get(d, 0) == 0)
-     ]
-dias_sin_fichar = len(dias_sin_fichar_list)
+# --- Días con y sin fichaje ---
+dias_fichados = len(
+    [
+        d for d in dias_laborables
+        if d in r["mapa_horas"] and r["mapa_horas"].get(d, 0) > 0
+    ]
+)
 
+dias_sin_fichar_list = [
+    d for d in dias_laborables
+    if d not in festivos_personal
+    and (d not in r["mapa_horas"] or r["mapa_horas"].get(d, 0) == 0)
+]
+
+dias_sin_fichar = len(dias_sin_fichar_list)
 
 
 global_data.append({
@@ -899,6 +907,7 @@ global_data.append({
     )
 
 st.write("Fin de la app")
+
 
 
 
