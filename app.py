@@ -509,7 +509,7 @@ dias_sin_fichar = len(dias_sin_fichar_list)
 
 
 
-        global_data.append({
+global_data.append({
             "Empleado": nombre,
             "Horas Totales": horas_totales,
             "Objetivo Mes": objetivo_mes,
@@ -899,6 +899,7 @@ dias_sin_fichar = len(dias_sin_fichar_list)
     )
 
 st.write("Fin de la app")
+
 
 
 
