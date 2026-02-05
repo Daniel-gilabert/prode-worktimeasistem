@@ -494,18 +494,18 @@ horas_diarias_emp = horas_semanales_emp / 5
 
 objetivo_mes = len(dias_laborables) * horas_diarias_emp
 
-    horas_totales = r["total_horas"]
-        diferencia = horas_totales - objetivo_mes
-        horas_extra = max(0.0, diferencia)
+horas_totales = r["total_horas"]
+diferencia = horas_totales - objetivo_mes
+horas_extra = max(0.0, diferencia)
 
-        dias_fichados = len([d for d in dias_laborables if d in r["mapa_horas"] and (r["mapa_horas"].get(d, 0) > 0)])
-        dias_sin_fichar_list = [d for d in dias_laborables if d not in r["mapa_horas"] or r["mapa_horas"].get(d, 0) == 0]
+dias_fichados = len([d for d in dias_laborables if d in r["mapa_horas"] and (r["mapa_horas"].get(d, 0) > 0)])
+dias_sin_fichar_list = [d for d in dias_laborables if d not in r["mapa_horas"] or r["mapa_horas"].get(d, 0) == 0]
         dias_sin_fichar_list = [
        d for d in dias_laborables
          if d not in festivos_personal
          and (d not in r["mapa_horas"] or r["mapa_horas"].get(d, 0) == 0)
      ]
-        dias_sin_fichar = len(dias_sin_fichar_list)
+     dias_sin_fichar = len(dias_sin_fichar_list)
 
 
 
@@ -899,6 +899,7 @@ objetivo_mes = len(dias_laborables) * horas_diarias_emp
     )
 
 st.write("Fin de la app")
+
 
 
 
