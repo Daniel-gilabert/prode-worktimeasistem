@@ -522,7 +522,7 @@ global_data.append({
             "Ausencias": ausencias
         })
 
-        if dias_sin_fichar > 0:
+    if dias_sin_fichar > 0:
             alertas.append((nombre, dias_sin_fichar, dias_sin_fichar_list))
 
     if alertas:
@@ -899,6 +899,7 @@ global_data.append({
     )
 
 st.write("Fin de la app")
+
 
 
 
