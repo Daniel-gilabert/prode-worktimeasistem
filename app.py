@@ -505,7 +505,7 @@ dias_sin_fichar_list = [
          if d not in festivos_personal
          and (d not in r["mapa_horas"] or r["mapa_horas"].get(d, 0) == 0)
      ]
-     dias_sin_fichar = len(dias_sin_fichar_list)
+dias_sin_fichar = len(dias_sin_fichar_list)
 
 
 
@@ -899,6 +899,7 @@ dias_sin_fichar_list = [
     )
 
 st.write("Fin de la app")
+
 
 
 
