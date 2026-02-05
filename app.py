@@ -492,9 +492,9 @@ if st.button("⚙️ Procesar datos y generar informes"):
 horas_semanales_emp = st.session_state.jornada_por_empleado.get(nombre, 38.5)
 horas_diarias_emp = horas_semanales_emp / 5
 
-        objetivo_mes = len(dias_laborables) * horas_diarias_emp
+objetivo_mes = len(dias_laborables) * horas_diarias_emp
 
-        horas_totales = r["total_horas"]
+    horas_totales = r["total_horas"]
         diferencia = horas_totales - objetivo_mes
         horas_extra = max(0.0, diferencia)
 
@@ -899,6 +899,7 @@ horas_diarias_emp = horas_semanales_emp / 5
     )
 
 st.write("Fin de la app")
+
 
 
 
