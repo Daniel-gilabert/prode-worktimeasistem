@@ -415,15 +415,19 @@ aplicar_todos_festivos = st.checkbox("Aplicar los festivos manuales a todos los 
 # Procesado y generación de datos globales
 # -----------------------------
 if st.button("⚙️ Procesar datos y generar informes"):
-    folder = create_month_folder_from_date(year, month)
-        # Festivos automáticos y manuales (recalculados al generar)
+        # 🔁 Recalcular festivos y ausencias JUSTO al generar informes
+
+    # Festivos automáticos según el año del Excel
     festivos_objetivos = {safe_parse_date(f) for f in DEFAULT_FESTIVOS if safe_parse_date(f)}
     festivos_objetivos |= {safe_parse_date(f) for f in FESTIVOS_ANDALUCIA if safe_parse_date(f)}
 
-    if manual_festivos:
-        if aplicar_todos_festivos:
-            for d in manual_festivos:
-                festivos_objetivos.add(d)
+    # Festivos manuales guardados en session_state
+    for emp_data in st.session_state.dias_por_empleado.values():
+        for d in emp_data.get("Festivo", []):
+            festivos_objetivos.add(d)
+
+    folder = create_month_folder_from_date(year, month)
+     
 
 
     resumen_empleados = []
@@ -863,6 +867,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
