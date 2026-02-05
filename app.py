@@ -200,6 +200,10 @@ if "user_keys" not in st.session_state:
     st.session_state.user_keys = DEFAULT_KEYS.copy()
 if "dias_por_empleado" not in st.session_state:
     st.session_state.dias_por_empleado = {}
+if "dias_por_empleado" not in st.session_state:
+    st.session_state.dias_por_empleado = {}
+if "jornada_por_empleado" not in st.session_state:
+    st.session_state.jornada_por_empleado = {}
 
 st.sidebar.header("🔐 Acceso (obligatorio)")
 key_input = st.sidebar.text_input("Introduce tu clave:", type="password")
@@ -400,6 +404,30 @@ if st.button("➕ Añadir ausencia"):
             f"{motivo_sel} añadida para {empleado_ausencia} del {desde} al {hasta}"
         )
 
+st.subheader("🕒 Jornada laboral por empleado")
+
+empleado_jornada = st.selectbox(
+    "Empleado",
+    sorted(df["nombre"].unique()),
+    key="empleado_jornada"
+)
+
+opciones_jornada = {
+    "38,5 h semanales (7:42 h/día)": 38.5,
+    "35 h semanales (7 h/día)": 35,
+    "30 h semanales (6 h/día)": 30,
+    "25 h semanales (5 h/día)": 25,
+    "20 h semanales (4 h/día)": 20,
+}
+
+jornada_sel = st.selectbox(
+    "Selecciona la jornada semanal",
+    list(opciones_jornada.keys())
+)
+
+if st.button("💾 Guardar jornada"):
+    st.session_state.jornada_por_empleado[empleado_jornada] = opciones_jornada[jornada_sel]
+    st.success(f"Jornada guardada para {empleado_jornada}")
 
       
 
@@ -461,7 +489,11 @@ if st.button("⚙️ Procesar datos y generar informes"):
 ]
 
 
-        objetivo_mes = len(dias_laborables) * HORAS_LABORALES_DIA
+horas_semanales_emp = st.session_state.jornada_por_empleado.get(nombre, 38.5)
+horas_diarias_emp = horas_semanales_emp / 5
+
+objetivo_mes = len(dias_laborables) * horas_diarias_emp
+
         horas_totales = r["total_horas"]
         diferencia = horas_totales - objetivo_mes
         horas_extra = max(0.0, diferencia)
@@ -867,6 +899,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
