@@ -477,7 +477,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     festivos_objetivos |= {safe_parse_date(f) for f in FESTIVOS_ANDALUCIA if safe_parse_date(f)}
 
     # Festivos manuales guardados en session_state
-        for emp_data in st.session_state.get("dias_por_empleado", {}).values():
+    for emp_data in st.session_state.get("dias_por_empleado", {}).values():
 
         for d in emp_data.get("Festivo", []):
             festivos_objetivos.add(d)
@@ -970,6 +970,7 @@ if st.session_state.get("activated") and st.session_state.get("is_admin"):
 
 
 st.write("Fin de la app")
+
 
 
 
