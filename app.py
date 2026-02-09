@@ -55,6 +55,8 @@ HORAS_LABORALES_DIA = HORAS_SEMANALES / 5  # 7.7
 # -----------------------------
 # Session defaults & auth (LOGIN POR CORREO)
 # -----------------------------
+if "registro_accesos" not in st.session_state:
+    st.session_state.registro_accesos = []
 if "activated" not in st.session_state:
     st.session_state.activated = False
     st.session_state.user_email = ""
@@ -250,22 +252,6 @@ if "jornada_por_empleado" not in st.session_state:
 
 if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
-
-
-st.sidebar.header("🔐 Acceso (obligatorio)")
-key_input = st.sidebar.text_input("Introduce tu clave:", type="password")
-if st.sidebar.button("Activar"):
-    if key_input.strip() in st.session_state.user_keys:
-        st.session_state.activated = True
-        st.session_state.current_key = key_input.strip()
-        st.session_state.is_admin = (key_input.strip() == ADMIN_KEY)
-
-        registrar_acceso(
-            usuario=key_input.strip(),
-            es_admin=st.session_state.is_admin
-        )
-
-        st.sidebar.success("Activado ✅")
 
     else:
         st.sidebar.error("Clave inválida ❌")
@@ -982,6 +968,7 @@ if st.session_state.is_admin:
   
 
 st.write("Fin de la app")
+
 
 
 
