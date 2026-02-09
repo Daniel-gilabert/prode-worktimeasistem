@@ -241,13 +241,16 @@ if "activated" not in st.session_state:
     st.session_state.activated = False
     st.session_state.current_key = ""
     st.session_state.is_admin = False
-if "user_keys" not in st.session_state:
+# Inicialización de session_state
 if "dias_por_empleado" not in st.session_state:
     st.session_state.dias_por_empleado = {}
-if "dias_por_empleado" not in st.session_state:
-    st.session_state.dias_por_empleado = {}
+
 if "jornada_por_empleado" not in st.session_state:
     st.session_state.jornada_por_empleado = {}
+
+if "is_admin" not in st.session_state:
+    st.session_state.is_admin = False
+
 
 st.sidebar.header("🔐 Acceso (obligatorio)")
 key_input = st.sidebar.text_input("Introduce tu clave:", type="password")
@@ -991,6 +994,7 @@ if st.session_state.is_admin:
   
 
 st.write("Fin de la app")
+
 
 
 
