@@ -106,7 +106,7 @@ ASSETS_DIR.mkdir(exist_ok=True)
 # -----------------------------
 def registrar_acceso(usuario, es_admin):
     ruta = BASE_DIR / "registro_accesos.xlsx"
-now = datetime.now() + timedelta(hours=1)
+
 
     nueva_fila = {
         "fecha": datetime.now().strftime("%Y-%m-%d"),
@@ -966,6 +966,7 @@ if st.session_state.is_admin:
   
 
 st.write("Fin de la app")
+
 
 
 
