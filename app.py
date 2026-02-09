@@ -242,7 +242,6 @@ if "activated" not in st.session_state:
     st.session_state.current_key = ""
     st.session_state.is_admin = False
 if "user_keys" not in st.session_state:
-
 if "dias_por_empleado" not in st.session_state:
     st.session_state.dias_por_empleado = {}
 if "dias_por_empleado" not in st.session_state:
@@ -992,6 +991,7 @@ if st.session_state.is_admin:
   
 
 st.write("Fin de la app")
+
 
 
 
