@@ -23,6 +23,18 @@ import numpy as np
 import streamlit as st
 import pdfplumber
 from zoneinfo import ZoneInfo
+# ==============================
+# Registro de accesos (Excel)
+# ==============================
+
+ACCESS_LOG_PATH = Path("registro_accesos.xlsx")
+
+# Crear el Excel si no existe
+if not ACCESS_LOG_PATH.exists():
+    df_init = pd.DataFrame(
+        columns=["fecha", "hora", "usuario", "es_admin"]
+    )
+    df_init.to_excel(ACCESS_LOG_PATH, index=False)
 
 
 from reportlab.platypus import (
@@ -941,6 +953,7 @@ if st.session_state.is_admin:
   
 
 st.write("Fin de la app")
+
 
 
 
