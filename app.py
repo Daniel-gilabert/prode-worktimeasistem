@@ -45,7 +45,6 @@ except Exception:
 # CONFIG
 # -----------------------------
 APP_NAME = "PRODE WorkTimeAsistem"
-ADMIN_KEY = "PRODE-ADMIN-ADMIN"
 LOGO_FILENAME = "logo-prode.jpg"
 LOGO_LOCAL_PATH = "/mnt/data/logo-prode.jpg"
 
@@ -53,20 +52,16 @@ HORAS_SEMANALES = 38.5
 HORAS_LABORALES_DIA = HORAS_SEMANALES / 5  # 7.7
 
 # -----------------------------
-# Session defaults & auth (LOGIN POR CORREO)
+# ACCESO POR CORREO CORPORATIVO
 # -----------------------------
-if "registro_accesos" not in st.session_state:
-    st.session_state.registro_accesos = []
-if "activated" not in st.session_state:
-    st.session_state.activated = False
-    st.session_state.user_email = ""
-    st.session_state.is_admin = False
-
 st.sidebar.header("🔐 Acceso")
 
-email_input = st.sidebar.text_input("Correo corporativo (@prode.es)")
+email_input = st.sidebar.text_input(
+    "Correo corporativo (@prode.es)",
+    key="email_login"
+)
 
-if st.sidebar.button("Entrar"):
+if st.sidebar.button("Entrar", key="btn_login"):
     email_input = email_input.strip().lower()
 
     if not email_input:
@@ -79,9 +74,10 @@ if st.sidebar.button("Entrar"):
         st.session_state.is_admin = (email_input == "danielgilabert@prode.es")
         st.sidebar.success("Acceso correcto ✅")
 
-if not st.session_state.activated:
+if "activated" not in st.session_state or not st.session_state.activated:
     st.warning("Introduce tu correo corporativo para continuar.")
     st.stop()
+
 
 from datetime import datetime, timedelta, date
 
@@ -984,6 +980,7 @@ if st.session_state.is_admin:
   
 
 st.write("Fin de la app")
+
 
 
 
