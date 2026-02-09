@@ -52,14 +52,35 @@ LOGO_LOCAL_PATH = "/mnt/data/logo-prode.jpg"
 HORAS_SEMANALES = 38.5
 HORAS_LABORALES_DIA = HORAS_SEMANALES / 5  # 7.7
 
-DEFAULT_KEYS = [
-    "PRODE-ADMIN-ADMIN",
-    "PRODE-ULTIMAMILLA-DGC",
-    "PRODE-ULTIMAMILLA-JLM",
-    "PRODE-CAPITALHUMANO-ZMGR"
-    "PRODE-JMV"
-    "PRODE-JCY"
-]
+# -----------------------------
+# Session defaults & auth (LOGIN POR CORREO)
+# -----------------------------
+if "activated" not in st.session_state:
+    st.session_state.activated = False
+    st.session_state.user_email = ""
+    st.session_state.is_admin = False
+
+st.sidebar.header("🔐 Acceso")
+
+email_input = st.sidebar.text_input("Correo corporativo (@prode.es)")
+
+if st.sidebar.button("Entrar"):
+    email_input = email_input.strip().lower()
+
+    if not email_input:
+        st.sidebar.error("Introduce un correo")
+    elif not email_input.endswith("@prode.es"):
+        st.sidebar.error("Solo se permiten correos @prode.es")
+    else:
+        st.session_state.activated = True
+        st.session_state.user_email = email_input
+        st.session_state.is_admin = (email_input == "danielgilabert@prode.es")
+        st.sidebar.success("Acceso correcto ✅")
+
+if not st.session_state.activated:
+    st.warning("Introduce tu correo corporativo para continuar.")
+    st.stop()
+
 from datetime import datetime, timedelta, date
 
 CURRENT_YEAR = datetime.now().year
@@ -971,6 +992,7 @@ if st.session_state.is_admin:
   
 
 st.write("Fin de la app")
+
 
 
 
