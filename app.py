@@ -232,46 +232,7 @@ if logo_path_display:
 st.markdown("<h5 style='text-align:center;color:gray;'>Desarrollado por <b>Daniel Gilabert Cantero</b> — Fundación PRODE</h5>", unsafe_allow_html=True)
 st.markdown("---")
 
-# -----------------------------
-# ACCESO POR CORREO CORPORATIVO
-# -----------------------------
 
-if "activated" not in st.session_state:
-    st.session_state.activated = False
-
-if "current_user" not in st.session_state:
-    st.session_state.current_user = None
-
-if "is_admin" not in st.session_state:
-    st.session_state.is_admin = False
-
-
-st.sidebar.header("🔐 Acceso")
-
-email = st.sidebar.text_input(
-    "Correo corporativo (@prode.es)",
-    placeholder="nombre@prode.es"
-)
-
-if st.sidebar.button("Entrar"):
-    if email.endswith("@prode.es"):
-        st.session_state.activated = True
-        st.session_state.current_user = email
-        st.session_state.is_admin = (email == "danielgilabert@prode.es")
-
-        st.sidebar.success("Acceso correcto ✅")
-    else:
-        st.sidebar.error("Correo no autorizado ❌")
-
-
-if not st.session_state.activated:
-    st.warning("Debes acceder con tu correo corporativo para continuar.")
-    st.stop()
-
-
-if not st.session_state.activated:
-    st.warning("Activa la aplicación con tu clave para continuar.")
-    st.stop()
 
 # -----------------------------
 # Upload file
@@ -980,6 +941,7 @@ if st.session_state.is_admin:
   
 
 st.write("Fin de la app")
+
 
 
 
