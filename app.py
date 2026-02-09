@@ -239,22 +239,27 @@ st.markdown("---")
 # -----------------------------
 # Session defaults & auth
 # -----------------------------
+# -----------------------------
+# Session defaults
+# -----------------------------
 if "activated" not in st.session_state:
     st.session_state.activated = False
-    st.session_state.current_key = ""
+
+if "current_user" not in st.session_state:
+    st.session_state.current_user = None
+
+if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
-# Inicialización de session_state
+
 if "dias_por_empleado" not in st.session_state:
     st.session_state.dias_por_empleado = {}
 
 if "jornada_por_empleado" not in st.session_state:
     st.session_state.jornada_por_empleado = {}
 
-if "is_admin" not in st.session_state:
-    st.session_state.is_admin = False
+if "access_log" not in st.session_state:
+    st.session_state.access_log = []
 
-    else:
-        st.sidebar.error("Clave inválida ❌")
 
 
 if not st.session_state.activated:
@@ -968,6 +973,7 @@ if st.session_state.is_admin:
   
 
 st.write("Fin de la app")
+
 
 
 
