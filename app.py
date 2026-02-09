@@ -85,6 +85,20 @@ if st.sidebar.button("Entrar", key="btn_login"):
         st.session_state.user_email = email_input
         st.session_state.is_admin = (email_input == "danielgilabert@prode.es")
         st.sidebar.success("Acceso correcto ✅")
+                # Registrar acceso en Excel
+        ahora = datetime.now(ZoneInfo("Europe/Madrid"))
+
+        nueva_fila = {
+            "fecha": ahora.strftime("%Y-%m-%d"),
+            "hora": ahora.strftime("%H:%M:%S"),
+            "usuario": email_input,
+            "es_admin": "Sí" if st.session_state.is_admin else "No"
+        }
+
+        df_log = pd.read_excel(ACCESS_LOG_PATH)
+        df_log = pd.concat([df_log, pd.DataFrame([nueva_fila])], ignore_index=True)
+        df_log.to_excel(ACCESS_LOG_PATH, index=False)
+
 
 if "activated" not in st.session_state or not st.session_state.activated:
     st.warning("Introduce tu correo corporativo para continuar.")
@@ -953,6 +967,7 @@ if st.session_state.is_admin:
   
 
 st.write("Fin de la app")
+
 
 
 
