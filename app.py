@@ -942,8 +942,30 @@ if st.button("⚙️ Procesar datos y generar informes"):
         file_name=out_global.name,
         mime="application/pdf"
     )
+  # -----------------------------
+# REGISTRO DE ACCESOS (SOLO ADMIN)
+# -----------------------------
+if st.session_state.is_admin:
+    st.subheader("🧾 Registro de accesos")
+
+    ruta_log = BASE_DIR / "registro_accesos.xlsx"
+
+    if ruta_log.exists():
+        df_log = pd.read_excel(ruta_log)
+
+        if df_log.empty:
+            st.info("No hay accesos registrados todavía.")
+        else:
+            st.dataframe(
+                df_log.sort_values(by=["fecha", "hora"], ascending=False),
+                use_container_width=True
+            )
+    else:
+        st.warning("No existe aún el archivo de registro de accesos.")
+  
 
 st.write("Fin de la app")
+
 
 
 
