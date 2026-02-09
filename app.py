@@ -237,11 +237,9 @@ st.markdown("<h5 style='text-align:center;color:gray;'>Desarrollado por <b>Danie
 st.markdown("---")
 
 # -----------------------------
-# Session defaults & auth
+# ACCESO POR CORREO CORPORATIVO
 # -----------------------------
-# -----------------------------
-# Session defaults
-# -----------------------------
+
 if "activated" not in st.session_state:
     st.session_state.activated = False
 
@@ -251,15 +249,28 @@ if "current_user" not in st.session_state:
 if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
 
-if "dias_por_empleado" not in st.session_state:
-    st.session_state.dias_por_empleado = {}
 
-if "jornada_por_empleado" not in st.session_state:
-    st.session_state.jornada_por_empleado = {}
+st.sidebar.header("🔐 Acceso")
 
-if "access_log" not in st.session_state:
-    st.session_state.access_log = []
+email = st.sidebar.text_input(
+    "Correo corporativo (@prode.es)",
+    placeholder="nombre@prode.es"
+)
 
+if st.sidebar.button("Entrar"):
+    if email.endswith("@prode.es"):
+        st.session_state.activated = True
+        st.session_state.current_user = email
+        st.session_state.is_admin = (email == "danielgilabert@prode.es")
+
+        st.sidebar.success("Acceso correcto ✅")
+    else:
+        st.sidebar.error("Correo no autorizado ❌")
+
+
+if not st.session_state.activated:
+    st.warning("Debes acceder con tu correo corporativo para continuar.")
+    st.stop()
 
 
 if not st.session_state.activated:
@@ -973,6 +984,7 @@ if st.session_state.is_admin:
   
 
 st.write("Fin de la app")
+
 
 
 
