@@ -22,6 +22,8 @@ import pandas as pd
 import numpy as np
 import streamlit as st
 import pdfplumber
+from zoneinfo import ZoneInfo
+
 
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage
@@ -107,7 +109,8 @@ ASSETS_DIR.mkdir(exist_ok=True)
 def registrar_acceso(usuario, es_admin):
     ruta = BASE_DIR / "registro_accesos.xlsx"
     
-    now = datetime.now() + timedelta(hours=1)
+    now = datetime.now(ZoneInfo("Europe/Madrid"))
+
 
     nueva_fila = {
         "fecha": now.strftime("%Y-%m-%d"),
@@ -968,6 +971,7 @@ if st.session_state.is_admin:
   
 
 st.write("Fin de la app")
+
 
 
 
