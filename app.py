@@ -270,18 +270,6 @@ if st.sidebar.button("Activar"):
     else:
         st.sidebar.error("Clave inválida ❌")
 
-if st.session_state.is_admin:
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("🛠 Gestión claves (Admin)")
-    nueva = st.sidebar.text_input("Nueva clave")
-    if st.sidebar.button("➕ Añadir clave"):
-        if nueva and nueva not in st.session_state.user_keys:
-            st.session_state.user_keys.append(nueva)
-            st.sidebar.success("Clave añadida")
-    to_del = st.sidebar.selectbox("Eliminar clave", [k for k in st.session_state.user_keys if k != ADMIN_KEY])
-    if st.sidebar.button("🗑️ Eliminar clave"):
-        st.session_state.user_keys.remove(to_del)
-        st.sidebar.warning(f"Clave {to_del} eliminada")
 
 if not st.session_state.activated:
     st.warning("Activa la aplicación con tu clave para continuar.")
@@ -994,6 +982,7 @@ if st.session_state.is_admin:
   
 
 st.write("Fin de la app")
+
 
 
 
