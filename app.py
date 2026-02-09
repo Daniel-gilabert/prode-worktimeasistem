@@ -23,6 +23,22 @@ import numpy as np
 import streamlit as st
 import pdfplumber
 from zoneinfo import ZoneInfo
+# -----------------------------
+# Inicialización segura del session_state
+# -----------------------------
+
+if "jornada_por_empleado" not in st.session_state:
+    st.session_state.jornada_por_empleado = {}
+
+if "dias_por_empleado" not in st.session_state:
+    st.session_state.dias_por_empleado = {}
+
+if "activated" not in st.session_state:
+    st.session_state.activated = False
+
+if "is_admin" not in st.session_state:
+    st.session_state.is_admin = False
+
 # ==============================
 # Registro de accesos (Excel)
 # ==============================
@@ -970,6 +986,7 @@ if st.session_state.get("activated") and st.session_state.get("is_admin"):
 
 
 st.write("Fin de la app")
+
 
 
 
