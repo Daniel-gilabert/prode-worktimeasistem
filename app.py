@@ -104,6 +104,24 @@ ASSETS_DIR.mkdir(exist_ok=True)
 # -----------------------------
 # HELPERS
 # -----------------------------
+def registrar_acceso(usuario, es_admin):
+    ruta = BASE_DIR / "registro_accesos.xlsx"
+
+    nueva_fila = {
+        "fecha": datetime.now().strftime("%Y-%m-%d"),
+        "hora": datetime.now().strftime("%H:%M:%S"),
+        "usuario": usuario,
+        "es_admin": "Sí" if es_admin else "No"
+    }
+
+    if ruta.exists():
+        df_log = pd.read_excel(ruta)
+        df_log = pd.concat([df_log, pd.DataFrame([nueva_fila])], ignore_index=True)
+    else:
+        df_log = pd.DataFrame([nueva_fila])
+
+    df_log.to_excel(ruta, index=False)
+
 def safe_parse_date(x):
     try:
         return pd.to_datetime(x).date()
@@ -212,7 +230,14 @@ if st.sidebar.button("Activar"):
         st.session_state.activated = True
         st.session_state.current_key = key_input.strip()
         st.session_state.is_admin = (key_input.strip() == ADMIN_KEY)
+
+        registrar_acceso(
+            usuario=key_input.strip(),
+            es_admin=st.session_state.is_admin
+        )
+
         st.sidebar.success("Activado ✅")
+
     else:
         st.sidebar.error("Clave inválida ❌")
 
@@ -919,6 +944,7 @@ if st.button("⚙️ Procesar datos y generar informes"):
     )
 
 st.write("Fin de la app")
+
 
 
 
