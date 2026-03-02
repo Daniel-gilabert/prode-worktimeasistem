@@ -73,7 +73,7 @@ from repositories.panel_acceso_repo import PanelAccesoRepository
 from repositories.historico_repo import HistoricoRepository
 from services.fichaje_service import FichajeService
 from services.calculo_service import CalculoService
-from ui.login import render_login
+from ui.login import render_login, render_footer
 from ui.configuracion import render_configuracion
 from ui.resumen import render_resumen
 from ui.exportacion import render_exportacion
@@ -100,6 +100,7 @@ if not render_login():
     st.stop()
 
 usuario = st.session_state["usuario"]
+render_footer()
 
 # =============================================================================
 # BARRA LATERAL
