@@ -235,17 +235,17 @@ def _render_graficas_evolucion(df: pd.DataFrame, mostrar_todos: bool) -> None:
             )
             st.plotly_chart(fig3, use_container_width=True)
 
-    # Gráfica 4: heatmap comparativo todos los empleados × todos los meses
-    _render_heatmap_comparativo(df)
+    # Gráfica 4: comparativa global por meses guardados
+    _render_comparativa_global(df)
 
 
-def _render_heatmap_comparativo(df: pd.DataFrame) -> None:
-    """Heatmap: empleados (filas) × meses (columnas) con % días fichados correctamente."""
+def _render_comparativa_global(df: pd.DataFrame) -> None:
+    """Gráfica comparativa de métricas globales agregadas por mes guardado."""
     if df.empty:
         return
 
-    st.markdown("#### Comparativa global: cumplimiento por empleado y mes")
-    st.caption("Porcentaje de días laborables fichados correctamente (sin errores ni ausencias).")
+    st.markdown("#### Comparativa global por mes")
+    st.caption("Totales agregados de todos los empleados en cada mes guardado.")
 
     meses_ord = (
         df[["label", "label_sort"]]
@@ -254,55 +254,97 @@ def _render_heatmap_comparativo(df: pd.DataFrame) -> None:
         .tolist()
     )
 
-    df2 = df.copy()
-    df2["pct_ok"] = (
-        (df2["laborables"] - df2["sin_fichar"] - df2["errores"])
-        .clip(lower=0)
-        .div(df2["laborables"].replace(0, 1))
-        * 100
-    ).round(1)
-
-    pivot = df2.pivot_table(
-        index="nombre", columns="label", values="pct_ok", aggfunc="mean"
-    )
-    pivot = pivot.reindex(columns=meses_ord)
-    pivot = pivot.sort_index()
-
-    z = pivot.values.tolist()
-    x = list(pivot.columns)
-    y = list(pivot.index)
-
-    text_z = [
-        [f"{v:.0f}%" if pd.notna(v) else "" for v in row]
-        for row in pivot.values
-    ]
-
-    fig4 = go.Figure(
-        go.Heatmap(
-            z=z,
-            x=x,
-            y=y,
-            text=text_z,
-            texttemplate="%{text}",
-            textfont=dict(size=11),
-            colorscale=[
-                [0.0,  "#dc3545"],
-                [0.5,  "#fd7e14"],
-                [0.75, "#ffc107"],
-                [1.0,  "#28a745"],
-            ],
-            zmin=0,
-            zmax=100,
-            colorbar=dict(title="% OK", ticksuffix="%"),
-            hoverongaps=False,
-            hovertemplate="<b>%{y}</b><br>%{x}: %{z:.1f}%<extra></extra>",
+    agg = (
+        df.groupby(["label", "label_sort"])
+        .agg(
+            empleados=("nombre", "nunique"),
+            laborables_total=("laborables", "sum"),
+            fichados_total=("fichados", "sum"),
+            errores_total=("errores", "sum"),
+            sin_fichar_total=("sin_fichar", "sum"),
+            horas_reales_total=("horas_reales", "sum"),
+            objetivo_total=("objetivo", "sum"),
         )
+        .reset_index()
+        .sort_values("label_sort")
     )
-    fig4.update_layout(
-        title="Heatmap de cumplimiento de fichaje (todos los meses guardados)",
-        xaxis_title="Mes",
-        yaxis_title="Empleado",
-        height=max(380, 30 * len(y) + 120),
-        margin=dict(t=60, b=40, l=180, r=60),
-    )
-    st.plotly_chart(fig4, use_container_width=True)
+
+    agg["pct_ok"] = (
+        (agg["fichados_total"] - agg["errores_total"]).clip(lower=0)
+        / agg["laborables_total"].replace(0, 1) * 100
+    ).round(1)
+    agg["pct_sin"] = (agg["sin_fichar_total"] / agg["laborables_total"].replace(0, 1) * 100).round(1)
+    agg["pct_err"] = (agg["errores_total"] / agg["laborables_total"].replace(0, 1) * 100).round(1)
+    agg["pct_horas"] = (agg["horas_reales_total"] / agg["objetivo_total"].replace(0, 1) * 100).round(1)
+
+    tab1, tab2 = st.tabs(["Cumplimiento (%)", "Horas realizadas vs objetivo"])
+
+    with tab1:
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            x=agg["label"], y=agg["pct_ok"],
+            name="Fichaje OK", marker_color="#28a745",
+            text=agg["pct_ok"].astype(str) + "%", textposition="outside",
+        ))
+        fig.add_trace(go.Bar(
+            x=agg["label"], y=agg["pct_sin"],
+            name="Sin fichar", marker_color="#fd7e14",
+            text=agg["pct_sin"].astype(str) + "%", textposition="outside",
+        ))
+        fig.add_trace(go.Bar(
+            x=agg["label"], y=agg["pct_err"],
+            name="Con error", marker_color="#dc3545",
+            text=agg["pct_err"].astype(str) + "%", textposition="outside",
+        ))
+        fig.update_layout(
+            barmode="group",
+            title="% global de cumplimiento por mes",
+            xaxis_title="Mes",
+            yaxis=dict(title="%", range=[0, 115]),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02),
+            height=400,
+            margin=dict(t=60, b=40),
+            plot_bgcolor="#f8f9fa",
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        col1, col2, col3 = st.columns(3)
+        for i, row in agg.iterrows():
+            with [col1, col2, col3][i % 3]:
+                st.metric(
+                    label=row["label"],
+                    value=f"{row['pct_ok']}% OK",
+                    delta=f"{row['empleados']} empleados",
+                )
+
+    with tab2:
+        fig2 = go.Figure()
+        fig2.add_trace(go.Scatter(
+            x=agg["label"], y=agg["objetivo_total"],
+            mode="lines+markers", name="Objetivo total",
+            line=dict(color="#1a3d6e", dash="dash"), marker=dict(size=8),
+        ))
+        fig2.add_trace(go.Scatter(
+            x=agg["label"], y=agg["horas_reales_total"],
+            mode="lines+markers", name="Horas reales",
+            line=dict(color="#2e6da4", width=2), marker=dict(size=8),
+            fill="tonexty", fillcolor="rgba(46,109,164,0.1)",
+        ))
+        fig2.add_trace(go.Bar(
+            x=agg["label"], y=agg["pct_horas"],
+            name="% cumplimiento horas",
+            marker_color="rgba(40,167,69,0.3)",
+            yaxis="y2",
+            text=agg["pct_horas"].astype(str) + "%", textposition="outside",
+        ))
+        fig2.update_layout(
+            title="Horas globales realizadas vs objetivo por mes",
+            xaxis_title="Mes",
+            yaxis=dict(title="Horas totales"),
+            yaxis2=dict(title="% cumplimiento", overlaying="y", side="right", range=[0, 130], showgrid=False),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02),
+            height=420,
+            margin=dict(t=60, b=40),
+            plot_bgcolor="#f8f9fa",
+        )
+        st.plotly_chart(fig2, use_container_width=True)

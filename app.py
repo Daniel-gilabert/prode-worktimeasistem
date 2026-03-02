@@ -136,7 +136,7 @@ inc_repo  = IncidenciaRepository()
 if es_panel_user:
 
     st.divider()
-    col_up_a, col_graf_a = st.columns([4, 2])
+    col_up_a, col_pbi_a, col_graf_a = st.columns([4, 2, 2])
     with col_up_a:
         uploaded = st.file_uploader(
             "Sube el Excel mensual de fichajes",
@@ -144,6 +144,10 @@ if es_panel_user:
             key="upload_excel",
             help="Exportado directamente desde el sistema de control de presencia.",
         )
+    with col_pbi_a:
+        _pbi_url = os.environ.get("POWERBI_URL", "https://app.powerbi.com/groups/7ece2d6d-0e30-4470-ae37-f6f1f4a2eb6d/reports/9eef11ad-17a7-4035-bf27-37c8cb888e88/ReportSection7904145abaf3870d6a0d").strip()
+        st.markdown("<div style='padding-top:28px'></div>", unsafe_allow_html=True)
+        st.link_button("Descargar Excel desde PowerBI", url=_pbi_url, use_container_width=True)
     with col_graf_a:
         st.markdown("<div style='padding-top:28px'></div>", unsafe_allow_html=True)
         st.markdown(
