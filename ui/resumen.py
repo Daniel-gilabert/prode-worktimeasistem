@@ -1,9 +1,11 @@
 import streamlit as st
 import pandas as pd
+import unicodedata
 from models.empleado import Empleado
 from services.calculo_service import CalculoService
 from services.informe_pdf_service import InformePDFService
 from services.informe_excel_service import InformeExcelService
+from repositories.empleado_repo import EmpleadoRepository
 from datetime import date
 import os
 
@@ -18,6 +20,15 @@ MESES_ES = {
 LOGO_PATH = "assets/logo-prode.png" if os.path.exists("assets/logo-prode.png") else None
 
 
+def _limpiar(txt) -> str:
+    if not txt:
+        return ""
+    txt = str(txt).strip().upper()
+    txt = unicodedata.normalize("NFD", txt)
+    txt = txt.encode("ascii", "ignore").decode("utf-8")
+    return " ".join(txt.split())
+
+
 def render_resumen(
     empleados: list[Empleado],
     df_fichajes: pd.DataFrame,
@@ -25,6 +36,7 @@ def render_resumen(
     mapa_incidencias: dict[str, set[date]],
     anno: int,
     mes: int,
+    usuario: Empleado | None = None,
 ) -> list[dict]:
     nombre_mes = MESES_ES.get(mes, str(mes))
     st.subheader(f"Resumen mensual — {nombre_mes} {anno}")
@@ -35,7 +47,53 @@ def render_resumen(
 
     pdf_svc = InformePDFService(logo_path=LOGO_PATH)
     xls_svc = InformeExcelService()
+    emp_repo = EmpleadoRepository()
 
+    # ── Claves normalizadas ───────────────────────────────────────────────────
+    claves_bd = {_limpiar(e.apellidos_y_nombre): e for e in empleados}
+    claves_excel = set(df_fichajes["clave"].dropna().unique()) if "clave" in df_fichajes.columns else set()
+
+    # Empleados en BD sin datos en el Excel
+    sin_datos = [e for clave, e in claves_bd.items() if clave not in claves_excel]
+
+    # Nombres en Excel que no están en BD
+    nuevos_en_excel = sorted(claves_excel - set(claves_bd.keys()))
+
+    # ── Alerta: nuevos en Excel no están en BD ────────────────────────────────
+    if nuevos_en_excel:
+        with st.expander(
+            f"⚠️ {len(nuevos_en_excel)} empleado(s) en el Excel no están en la base de datos",
+            expanded=True,
+        ):
+            st.caption("Puedes añadirlos directamente asignándolos a tu grupo.")
+            for nombre_excel in nuevos_en_excel:
+                col_n, col_j, col_btn = st.columns([4, 2, 2])
+                col_n.markdown(f"**{nombre_excel.title()}**")
+                jornada_nueva = col_j.number_input(
+                    "Jornada (h/sem)",
+                    min_value=1.0,
+                    max_value=40.0,
+                    value=38.5,
+                    step=0.5,
+                    key=f"jornada_nuevo_{nombre_excel}",
+                    label_visibility="collapsed",
+                )
+                with col_btn:
+                    if st.button(
+                        "Añadir a BD",
+                        key=f"btn_nuevo_{nombre_excel}",
+                        use_container_width=True,
+                    ):
+                        responsable_id = usuario.id if usuario else ""
+                        emp_repo.crear_empleado(
+                            apellidos_y_nombre=nombre_excel.title(),
+                            responsable_id=responsable_id,
+                            jornada_semanal=jornada_nueva,
+                        )
+                        st.success(f"'{nombre_excel.title()}' añadido. Recarga para ver sus datos.")
+                        st.rerun()
+
+    # ── Resultados normales ───────────────────────────────────────────────────
     resultados = _calc.calcular_resumen_global(
         empleados, df_fichajes, mapa_festivos, mapa_incidencias, anno, mes
     )
@@ -94,6 +152,26 @@ def render_resumen(
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
                 key=f"xls_inline_{d['id']}",
+            )
+
+    # ── Empleados en BD sin datos en el Excel ─────────────────────────────────
+    if sin_datos:
+        st.divider()
+        st.markdown(
+            f"**{len(sin_datos)} empleado(s) sin datos en el Excel de este mes:**",
+        )
+        for e in sin_datos:
+            st.markdown(
+                f"""
+                <div style="
+                    background:#e9ecef;padding:8px 14px;border-radius:8px;
+                    font-size:13px;line-height:1.6;margin-top:4px;color:#6c757d;
+                ">
+                    <strong>{e.apellidos_y_nombre}</strong>
+                    &nbsp;|&nbsp; Sin datos este mes
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
 
     return resultados

@@ -185,7 +185,7 @@ if es_panel_user:
 
 st.divider()
 
-col_up, col_graf = st.columns([4, 2])
+col_up, col_pbi, col_graf = st.columns([4, 2, 2])
 with col_up:
     uploaded = st.file_uploader(
         "Sube el Excel mensual de fichajes",
@@ -193,6 +193,10 @@ with col_up:
         key="upload_excel",
         help="Exportado directamente desde el sistema de control de presencia.",
     )
+with col_pbi:
+    _powerbi_url = os.environ.get("POWERBI_URL", "https://app.powerbi.com/groups/7ece2d6d-0e30-4470-ae37-f6f1f4a2eb6d/reports/9eef11ad-17a7-4035-bf27-37c8cb888e88/ReportSection7904145abaf3870d6a0d").strip()
+    st.markdown("<div style='padding-top:28px'></div>", unsafe_allow_html=True)
+    st.link_button("Descargar Excel desde PowerBI", url=_powerbi_url, use_container_width=True)
 with col_graf:
     st.markdown("<div style='padding-top:28px'></div>", unsafe_allow_html=True)
     st.markdown(
@@ -227,6 +231,6 @@ mapa_festivos    = fest_repo.get_festivos_por_empleado(anno, usuario.id)
 mapa_incidencias = inc_repo.get_dias_por_empleado()
 
 render_configuracion(usuario, empleados, anno)
-resumen = render_resumen(empleados, df_fichajes, mapa_festivos, mapa_incidencias, anno, mes)
+resumen = render_resumen(empleados, df_fichajes, mapa_festivos, mapa_incidencias, anno, mes, usuario=usuario)
 render_exportacion(resumen, mes, anno, logo_path=LOGO_PATH)
 render_historico(usuario, resumen, anno, mes, mostrar_todos=False)

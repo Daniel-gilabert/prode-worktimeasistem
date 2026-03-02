@@ -45,6 +45,22 @@ class EmpleadoRepository:
             return Empleado.from_dict(rows[0])
         return None
 
+    def crear_empleado(self, apellidos_y_nombre: str, responsable_id: str, jornada_semanal: float = 38.5) -> Empleado:
+        client = get_client()
+        data = {
+            "apellidos_y_nombre": apellidos_y_nombre,
+            "email": "",
+            "activo": True,
+            "es_responsable": False,
+            "es_admin": False,
+            "jornada_semanal": jornada_semanal,
+            "responsable_id": responsable_id,
+        }
+        r = client.table("empleados").insert(data).execute()
+        st.cache_data.clear()
+        logger.info("Empleado creado: %s (responsable %s)", apellidos_y_nombre, responsable_id)
+        return Empleado.from_dict(r.data[0])
+
     def update_jornada(self, empleado_id: str, jornada: float) -> None:
         client = get_client()
         client.table("empleados").update({"jornada_semanal": jornada}).eq(
