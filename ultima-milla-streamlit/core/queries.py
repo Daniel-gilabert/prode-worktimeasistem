@@ -3,7 +3,7 @@ Capa de acceso a datos con Supabase.
 Adaptada a la estructura real de la tabla vehiculos existente.
 """
 from datetime import date
-from .db import get_supabase
+from .db import get_supabase, ejecutar_con_reintento
 from .models import (
     Empleado, Vehiculo, Sustitucion, Ausencia, Incidencia, EstadoServicio
 )
@@ -51,7 +51,9 @@ def _row_vehiculo(r: dict) -> Vehiculo:
 # ── Vehículos ─────────────────────────────────────────────────────
 def get_vehiculos() -> list[dict]:
     sb = get_supabase()
-    res = sb.table("vehiculos").select("*").neq("matricula", "").order("matricula").execute()
+    res = ejecutar_con_reintento(
+        lambda: sb.table("vehiculos").select("*").neq("matricula", "").order("matricula").execute()
+    )
     return [v for v in res.data if v.get("matricula")]
 
 def actualizar_vehiculo(vehiculo_id: int, itv_vigente_hasta=None, seguro_vigente_hasta=None,
@@ -70,7 +72,9 @@ def actualizar_vehiculo(vehiculo_id: int, itv_vigente_hasta=None, seguro_vigente
 # ── Empleados ─────────────────────────────────────────────────────
 def get_empleados() -> list[dict]:
     sb = get_supabase()
-    res = sb.table("empleados").select("*").eq("activo", True).order("apellidos").execute()
+    res = ejecutar_con_reintento(
+        lambda: sb.table("empleados").select("*").eq("activo", True).order("apellidos").execute()
+    )
     return res.data
 
 def crear_empleado(nombre, apellidos, dni, telefono=None, email=None) -> dict:
@@ -85,9 +89,11 @@ def crear_empleado(nombre, apellidos, dni, telefono=None, email=None) -> dict:
 # ── Servicios ─────────────────────────────────────────────────────
 def get_servicios() -> list[dict]:
     sb = get_supabase()
-    res = sb.table("servicios").select(
-        "*, empleados!empleado_base_id(nombre, apellidos), vehiculos!vehiculo_base_id(matricula, marca, modelo)"
-    ).eq("activo", True).order("codigo").execute()
+    res = ejecutar_con_reintento(
+        lambda: sb.table("servicios").select(
+            "*, empleados!empleado_base_id(nombre, apellidos), vehiculos!vehiculo_base_id(matricula, marca, modelo)"
+        ).eq("activo", True).order("codigo").execute()
+    )
     rows = []
     for r in res.data:
         emp = r.get("empleados") or {}
