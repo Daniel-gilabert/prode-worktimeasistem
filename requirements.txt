@@ -1,0 +1,9 @@
+streamlit
+pandas
+numpy
+reportlab
+supabase
+python-dotenv
+openpyxl
+Pillow
+qrcode
