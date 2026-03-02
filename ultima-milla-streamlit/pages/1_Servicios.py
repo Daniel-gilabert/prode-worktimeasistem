@@ -136,22 +136,22 @@ with tab_ficha:
 
             st.subheader("Contacto principal")
             c1, c2 = st.columns(2)
-            ct_nombre  = c1.text_input("Nombre contacto",   value=srv.get("contacto_nombre","") or "")
-            ct_cargo   = c2.text_input("Cargo",             value=srv.get("contacto_cargo","") or "")
+            ct_nombre  = c1.text_input("Nombre contacto",   value=srv.get("contacto_nombre","") or "", key="e_ct_nombre")
+            ct_cargo   = c2.text_input("Cargo",             value=srv.get("contacto_cargo","") or "",  key="e_ct_cargo")
             c1, c2, c3 = st.columns(3)
-            ct_email   = c1.text_input("Email",             value=srv.get("contacto_email","") or "")
-            ct_tel     = c2.text_input("Teléfono",          value=srv.get("contacto_telefono","") or "")
-            ct_movil   = c3.text_input("Móvil",             value=srv.get("contacto_movil","") or "")
+            ct_email   = c1.text_input("Email principal",   value=srv.get("contacto_email","") or "",  key="e_ct_email")
+            ct_tel     = c2.text_input("Teléfono principal",value=srv.get("contacto_telefono","") or "",key="e_ct_tel")
+            ct_movil   = c3.text_input("Móvil",             value=srv.get("contacto_movil","") or "",  key="e_ct_movil")
 
             st.subheader("Contacto secundario")
             c1, c2, c3 = st.columns(3)
-            ct2_nombre = c1.text_input("Nombre",       value=srv.get("contacto2_nombre","") or "")
-            ct2_email  = c2.text_input("Email",        value=srv.get("contacto2_email","") or "")
-            ct2_tel    = c3.text_input("Teléfono",     value=srv.get("contacto2_telefono","") or "")
+            ct2_nombre = c1.text_input("Nombre secundario", value=srv.get("contacto2_nombre","") or "", key="e_ct2_nombre")
+            ct2_email  = c2.text_input("Email secundario",  value=srv.get("contacto2_email","") or "",  key="e_ct2_email")
+            ct2_tel    = c3.text_input("Teléfono secundario",value=srv.get("contacto2_telefono","") or "",key="e_ct2_tel")
 
             st.subheader("Facturación")
             c1, c2, c3 = st.columns(3)
-            fac_email  = c1.text_input("Email facturación", value=srv.get("facturacion_email","") or "")
+            fac_email  = c1.text_input("Email facturación", value=srv.get("facturacion_email","") or "", key="e_fac_email")
 
             fp_actual = srv.get("facturacion_forma_pago","") or ""
             fp_idx = FORMAS_PAGO.index(fp_actual) if fp_actual in FORMAS_PAGO else 0
