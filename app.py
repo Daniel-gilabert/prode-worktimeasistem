@@ -135,23 +135,25 @@ inc_repo  = IncidenciaRepository()
 if es_panel_user:
 
     st.divider()
-    uploaded = st.file_uploader(
-        "Sube el Excel mensual de fichajes",
-        type=["xlsx"],
-        key="upload_excel",
-        help="Descárgalo desde PowerBI y súbelo aquí.",
-    )
-
-    _powerbi_url = os.environ.get("POWERBI_URL", "").strip()
-    if _powerbi_url:
-        st.link_button(
-            "Descargar Excel desde PowerBI",
-            url=_powerbi_url,
-            use_container_width=False,
+    col_up_a, col_graf_a = st.columns([4, 2])
+    with col_up_a:
+        uploaded = st.file_uploader(
+            "Sube el Excel mensual de fichajes",
+            type=["xlsx"],
+            key="upload_excel",
+            help="Exportado directamente desde el sistema de control de presencia.",
+        )
+    with col_graf_a:
+        st.markdown("<div style='padding-top:28px'></div>", unsafe_allow_html=True)
+        st.markdown(
+            "<a href='#historico-evolucion' style='display:block;text-align:center;"
+            "background:#1a3d6e;color:white;padding:8px 12px;border-radius:6px;"
+            "text-decoration:none;font-size:14px;'>Ver gráficas de evolución ↓</a>",
+            unsafe_allow_html=True,
         )
 
     if not uploaded:
-        st.info("Abre PowerBI, descarga el Excel del mes y súbelo aquí.")
+        st.info("Sube el Excel de fichajes para comenzar el análisis.")
         st.stop()
 
     fichaje_svc = FichajeService()
@@ -183,8 +185,7 @@ if es_panel_user:
 
 st.divider()
 
-_powerbi_url = os.environ.get("POWERBI_URL", "").strip()
-col_up, col_pbi = st.columns([4, 2])
+col_up, col_graf = st.columns([4, 2])
 with col_up:
     uploaded = st.file_uploader(
         "Sube el Excel mensual de fichajes",
@@ -192,10 +193,14 @@ with col_up:
         key="upload_excel",
         help="Exportado directamente desde el sistema de control de presencia.",
     )
-with col_pbi:
-    if _powerbi_url:
-        st.markdown("<div style='padding-top:28px'></div>", unsafe_allow_html=True)
-        st.link_button("Descargar Excel desde PowerBI", url=_powerbi_url, use_container_width=True)
+with col_graf:
+    st.markdown("<div style='padding-top:28px'></div>", unsafe_allow_html=True)
+    st.markdown(
+        "<a href='#historico-evolucion' style='display:block;text-align:center;"
+        "background:#1a3d6e;color:white;padding:8px 12px;border-radius:6px;"
+        "text-decoration:none;font-size:14px;'>Ver gráficas de evolución ↓</a>",
+        unsafe_allow_html=True,
+    )
 
 if not uploaded:
     st.info("Sube el Excel de fichajes para comenzar el análisis.")

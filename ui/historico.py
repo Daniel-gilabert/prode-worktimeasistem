@@ -26,6 +26,7 @@ def render_historico(
     mostrar_todos: bool = False,
 ) -> None:
     st.divider()
+    st.markdown('<a name="historico-evolucion"></a>', unsafe_allow_html=True)
     st.subheader("Histórico y evolución")
 
     responsable_id = "global" if mostrar_todos else usuario.id
@@ -233,3 +234,75 @@ def _render_graficas_evolucion(df: pd.DataFrame, mostrar_todos: bool) -> None:
                 margin=dict(t=60, b=40),
             )
             st.plotly_chart(fig3, use_container_width=True)
+
+    # Gráfica 4: heatmap comparativo todos los empleados × todos los meses
+    _render_heatmap_comparativo(df)
+
+
+def _render_heatmap_comparativo(df: pd.DataFrame) -> None:
+    """Heatmap: empleados (filas) × meses (columnas) con % días fichados correctamente."""
+    if df.empty:
+        return
+
+    st.markdown("#### Comparativa global: cumplimiento por empleado y mes")
+    st.caption("Porcentaje de días laborables fichados correctamente (sin errores ni ausencias).")
+
+    meses_ord = (
+        df[["label", "label_sort"]]
+        .drop_duplicates()
+        .sort_values("label_sort")["label"]
+        .tolist()
+    )
+
+    df2 = df.copy()
+    df2["pct_ok"] = (
+        (df2["laborables"] - df2["sin_fichar"] - df2["errores"])
+        .clip(lower=0)
+        .div(df2["laborables"].replace(0, 1))
+        * 100
+    ).round(1)
+
+    pivot = df2.pivot_table(
+        index="nombre", columns="label", values="pct_ok", aggfunc="mean"
+    )
+    pivot = pivot.reindex(columns=meses_ord)
+    pivot = pivot.sort_index()
+
+    z = pivot.values.tolist()
+    x = list(pivot.columns)
+    y = list(pivot.index)
+
+    text_z = [
+        [f"{v:.0f}%" if pd.notna(v) else "" for v in row]
+        for row in pivot.values
+    ]
+
+    fig4 = go.Figure(
+        go.Heatmap(
+            z=z,
+            x=x,
+            y=y,
+            text=text_z,
+            texttemplate="%{text}",
+            textfont=dict(size=11),
+            colorscale=[
+                [0.0,  "#dc3545"],
+                [0.5,  "#fd7e14"],
+                [0.75, "#ffc107"],
+                [1.0,  "#28a745"],
+            ],
+            zmin=0,
+            zmax=100,
+            colorbar=dict(title="% OK", ticksuffix="%"),
+            hoverongaps=False,
+            hovertemplate="<b>%{y}</b><br>%{x}: %{z:.1f}%<extra></extra>",
+        )
+    )
+    fig4.update_layout(
+        title="Heatmap de cumplimiento de fichaje (todos los meses guardados)",
+        xaxis_title="Mes",
+        yaxis_title="Empleado",
+        height=max(380, 30 * len(y) + 120),
+        margin=dict(t=60, b=40, l=180, r=60),
+    )
+    st.plotly_chart(fig4, use_container_width=True)
