@@ -21,63 +21,23 @@ ESTADO_BADGE = {
 
 FORMAS_PAGO = ["Transferencia", "Confirming", "Remesa"]
 
-# ── Lista de servicios ────────────────────────────────────────────
-with tab_lista:
-    fecha   = st.date_input("Ver estado para:", value=hoy, key="fecha_lista")
-    servicios = get_servicios()
+TIPO_COLORES_DOC = {
+    "Contrato":               ("📜", "#EDE9FE", "#4C1D95"),
+    "Seguro vehículo":        ("🛡️", "#DCFCE7", "#166534"),
+    "Permiso / Autorización": ("✅", "#FEF9C3", "#854D0E"),
+    "Factura":                ("💶", "#FEE2E2", "#991B1B"),
+    "Parte de trabajo":       ("📋", "#E0F2FE", "#0C4A6E"),
+    "Ficha técnica vehículo": ("🔧", "#F3F4F6", "#374151"),
+    "Documentación empleado": ("👤", "#FEF3C7", "#92400E"),
+    "Acuerdo de servicio":    ("🤝", "#F0FDF4", "#14532D"),
+    "Otro":                   ("📎", "#F9FAFB", "#4B5563"),
+}
 
-    if not servicios:
-        st.info("No hay servicios registrados. Créalos en la pestaña 'Nuevo servicio'.")
-    else:
-        for s in servicios:
-            try:
-                estado = calcular_estado_servicio(s, fecha)
-                ico, bg, fg = ESTADO_BADGE[estado.estado]
-            except Exception:
-                ico, bg, fg, estado = "⚪", "#F3F4F6", "#374151", None
+def n(v): return v if v else None
 
-            with st.container(border=True):
-                c1, c2, c3, c4, c5, c6 = st.columns([1.2, 2.5, 2, 2, 1.5, 1.5])
-                with c1:
-                    st.markdown(f"**`{s['codigo']}`**")
-                    if s.get("zona"):
-                        st.caption(s["zona"])
-                with c2:
-                    st.write(s["descripcion"])
-                    if s.get("empresa_nombre"):
-                        st.caption(f"🏢 {s['empresa_nombre']}")
-                with c3:
-                    st.write(f"👤 {s['empleado_base_nombre']}")
-                with c4:
-                    st.write(f"🚐 `{s['vehiculo_base_matricula']}`")
-                with c5:
-                    st.markdown(
-                        f"<span style='background:{bg};color:{fg};padding:3px 10px;"
-                        f"border-radius:99px;font-size:.8rem;font-weight:600'>"
-                        f"{ico} {estado.estado.replace('_',' ') if estado else '—'}</span>",
-                        unsafe_allow_html=True
-                    )
-                with c6:
-                    if st.button("Ver ficha", key=f"ficha_{s['id']}"):
-                        st.session_state["servicio_seleccionado"] = s["id"]
-                        st.rerun()
 
-# ── Ficha completa del servicio ───────────────────────────────────
-with tab_ficha:
-    servicios  = get_servicios()
-    if not servicios:
-        st.info("No hay servicios creados todavía.")
-        st.stop()
-
-    opts       = {f"{s['codigo']} — {s['descripcion']}": s for s in servicios}
-    default    = 0
-    srv_id_sel = st.session_state.get("servicio_seleccionado")
-    if srv_id_sel:
-        match = next((i for i, s in enumerate(servicios) if s["id"] == srv_id_sel), 0)
-        default = match
-
-    sel = st.selectbox("Selecciona servicio", list(opts.keys()), index=default, key="sel_ficha")
-    srv = opts[sel]
+def _mostrar_ficha(srv: dict):
+    sid = srv["id"]
 
     # Estado operativo
     try:
@@ -88,13 +48,12 @@ with tab_ficha:
             f"font-weight:600;font-size:1rem;margin-bottom:12px'>"
             f"{ico} Estado hoy: {estado.estado.replace('_',' ')}"
             + (f" — {' | '.join(m.descripcion for m in estado.motivos)}" if estado.motivos else "")
-            + "</div>",
-            unsafe_allow_html=True
+            + "</div>", unsafe_allow_html=True
         )
     except Exception as e:
         st.warning(f"No se pudo calcular estado: {e}")
 
-    # ── Formulario de edición ─────────────────────────────────
+    # Formulario de edición
     with st.expander("✏️ Editar datos del servicio", expanded=False):
         empleados = get_empleados()
         vehiculos = get_vehiculos()
@@ -103,69 +62,66 @@ with tab_ficha:
         idx_emp   = list(opts_emp.values()).index(srv["empleado_base_id"]) if srv["empleado_base_id"] in opts_emp.values() else 0
         idx_veh   = list(opts_veh.values()).index(srv["vehiculo_base_id"]) if srv["vehiculo_base_id"] in opts_veh.values() else 0
 
-        with st.form("form_editar_srv"):
+        with st.form(f"form_editar_srv_{sid}"):
             st.subheader("Datos básicos")
             c1, c2, c3 = st.columns(3)
-            codigo      = c1.text_input("Código",      value=srv.get("codigo",""))
-            descripcion = c2.text_input("Descripción", value=srv.get("descripcion",""))
-            zona        = c3.text_input("Zona",        value=srv.get("zona","") or "")
+            codigo      = c1.text_input("Código",      value=srv.get("codigo",""),           key=f"cod_{sid}")
+            descripcion = c2.text_input("Descripción", value=srv.get("descripcion",""),       key=f"desc_{sid}")
+            zona        = c3.text_input("Zona",        value=srv.get("zona","") or "",        key=f"zona_{sid}")
 
             c1, c2 = st.columns(2)
-            fi_str = srv.get("fecha_inicio_contrato","")
-            ff_str = srv.get("fecha_fin_contrato","")
-            fi_val = date.fromisoformat(str(fi_str)[:10]) if fi_str else hoy
-            ff_val = date.fromisoformat(str(ff_str)[:10]) if ff_str else None
-            fi_cont = c1.date_input("Fecha inicio del servicio", value=fi_val)
-            tiene_fin = c2.checkbox("¿Tiene fecha de fin?", value=ff_val is not None)
+            fi_str  = srv.get("fecha_inicio_contrato","")
+            ff_str  = srv.get("fecha_fin_contrato","")
+            fi_val  = date.fromisoformat(str(fi_str)[:10]) if fi_str else hoy
+            ff_val  = date.fromisoformat(str(ff_str)[:10]) if ff_str else None
+            fi_cont = c1.date_input("Fecha inicio del servicio", value=fi_val, key=f"fi_{sid}")
+            tiene_fin = c2.checkbox("¿Tiene fecha de fin?", value=ff_val is not None, key=f"tfin_{sid}")
             ff_cont = None
             if tiene_fin:
-                ff_cont = c2.date_input("Fecha fin del servicio", value=ff_val or hoy)
+                ff_cont = c2.date_input("Fecha fin del servicio", value=ff_val or hoy, key=f"ff_{sid}")
 
             st.subheader("Recursos asignados")
             c1, c2 = st.columns(2)
-            emp_sel = c1.selectbox("Empleado base", list(opts_emp.keys()), index=idx_emp)
-            veh_sel = c2.selectbox("Vehículo base", list(opts_veh.keys()), index=idx_veh)
+            emp_sel = c1.selectbox("Empleado base", list(opts_emp.keys()), index=idx_emp, key=f"emp_{sid}")
+            veh_sel = c2.selectbox("Vehículo base", list(opts_veh.keys()), index=idx_veh, key=f"veh_{sid}")
 
             st.subheader("Datos empresa cliente")
             c1, c2, c3 = st.columns(3)
-            emp_nombre = c1.text_input("Razón social",  value=srv.get("empresa_nombre","") or "")
-            emp_cif    = c2.text_input("CIF / NIF",     value=srv.get("empresa_cif","") or "")
-            emp_pais   = c3.text_input("País",          value=srv.get("empresa_pais","España") or "España")
-            emp_dir    = st.text_input("Dirección fiscal", value=srv.get("empresa_direccion","") or "")
+            emp_nombre = c1.text_input("Razón social",    value=srv.get("empresa_nombre","") or "",           key=f"enombre_{sid}")
+            emp_cif    = c2.text_input("CIF / NIF",       value=srv.get("empresa_cif","") or "",              key=f"ecif_{sid}")
+            emp_pais   = c3.text_input("País",            value=srv.get("empresa_pais","España") or "España", key=f"epais_{sid}")
+            emp_dir    = st.text_input("Dirección fiscal", value=srv.get("empresa_direccion","") or "",        key=f"edir_{sid}")
             c1, c2, c3 = st.columns(3)
-            emp_cp     = c1.text_input("Código postal", value=srv.get("empresa_cp","") or "")
-            emp_ciudad = c2.text_input("Ciudad",        value=srv.get("empresa_ciudad","") or "")
-            emp_prov   = c3.text_input("Provincia",     value=srv.get("empresa_provincia","") or "")
+            emp_cp     = c1.text_input("Código postal",   value=srv.get("empresa_cp","") or "",               key=f"ecp_{sid}")
+            emp_ciudad = c2.text_input("Ciudad",          value=srv.get("empresa_ciudad","") or "",           key=f"eciu_{sid}")
+            emp_prov   = c3.text_input("Provincia",       value=srv.get("empresa_provincia","") or "",        key=f"eprov_{sid}")
 
             st.subheader("Contacto principal")
             c1, c2 = st.columns(2)
-            ct_nombre  = c1.text_input("Nombre contacto",   value=srv.get("contacto_nombre","") or "", key="e_ct_nombre")
-            ct_cargo   = c2.text_input("Cargo",             value=srv.get("contacto_cargo","") or "",  key="e_ct_cargo")
+            ct_nombre = c1.text_input("Nombre contacto",    value=srv.get("contacto_nombre","") or "",    key=f"ctnombre_{sid}")
+            ct_cargo  = c2.text_input("Cargo",              value=srv.get("contacto_cargo","") or "",     key=f"ctcargo_{sid}")
             c1, c2, c3 = st.columns(3)
-            ct_email   = c1.text_input("Email principal",   value=srv.get("contacto_email","") or "",  key="e_ct_email")
-            ct_tel     = c2.text_input("Teléfono principal",value=srv.get("contacto_telefono","") or "",key="e_ct_tel")
-            ct_movil   = c3.text_input("Móvil",             value=srv.get("contacto_movil","") or "",  key="e_ct_movil")
+            ct_email  = c1.text_input("Email principal",    value=srv.get("contacto_email","") or "",     key=f"ctemail_{sid}")
+            ct_tel    = c2.text_input("Teléfono principal", value=srv.get("contacto_telefono","") or "",  key=f"cttel_{sid}")
+            ct_movil  = c3.text_input("Móvil",              value=srv.get("contacto_movil","") or "",     key=f"ctmovil_{sid}")
 
             st.subheader("Contacto secundario")
             c1, c2, c3 = st.columns(3)
-            ct2_nombre = c1.text_input("Nombre secundario", value=srv.get("contacto2_nombre","") or "", key="e_ct2_nombre")
-            ct2_email  = c2.text_input("Email secundario",  value=srv.get("contacto2_email","") or "",  key="e_ct2_email")
-            ct2_tel    = c3.text_input("Teléfono secundario",value=srv.get("contacto2_telefono","") or "",key="e_ct2_tel")
+            ct2_nombre = c1.text_input("Nombre secundario",    value=srv.get("contacto2_nombre","") or "",   key=f"ct2nombre_{sid}")
+            ct2_email  = c2.text_input("Email secundario",     value=srv.get("contacto2_email","") or "",    key=f"ct2email_{sid}")
+            ct2_tel    = c3.text_input("Teléfono secundario",  value=srv.get("contacto2_telefono","") or "", key=f"ct2tel_{sid}")
 
             st.subheader("Facturación")
             c1, c2, c3 = st.columns(3)
-            fac_email  = c1.text_input("Email facturación", value=srv.get("facturacion_email","") or "", key="e_fac_email")
+            fac_email  = c1.text_input("Email facturación", value=srv.get("facturacion_email","") or "", key=f"facemail_{sid}")
+            fp_actual  = srv.get("facturacion_forma_pago","") or ""
+            fp_idx     = FORMAS_PAGO.index(fp_actual) if fp_actual in FORMAS_PAGO else 0
+            fac_pago   = c2.selectbox("Forma de pago", FORMAS_PAGO, index=fp_idx, key=f"facpago_{sid}")
+            num_cuenta = c3.text_input("Número de cuenta (IBAN)", value=srv.get("numero_cuenta","") or "", key=f"iban_{sid}")
 
-            fp_actual = srv.get("facturacion_forma_pago","") or ""
-            fp_idx = FORMAS_PAGO.index(fp_actual) if fp_actual in FORMAS_PAGO else 0
-            fac_pago   = c2.selectbox("Forma de pago", FORMAS_PAGO, index=fp_idx)
-
-            num_cuenta = c3.text_input("Número de cuenta (IBAN)", value=srv.get("numero_cuenta","") or "")
-
-            obs = st.text_area("Observaciones", value=srv.get("observaciones","") or "")
+            obs = st.text_area("Observaciones", value=srv.get("observaciones","") or "", key=f"obs_{sid}")
 
             if st.form_submit_button("💾 Guardar cambios", type="primary"):
-                def n(v): return v if v else None
                 try:
                     get_supabase().table("servicios").update({
                         "codigo": codigo, "descripcion": descripcion, "zona": n(zona),
@@ -185,13 +141,13 @@ with tab_ficha:
                         "facturacion_email": n(fac_email), "facturacion_forma_pago": n(fac_pago),
                         "numero_cuenta": n(num_cuenta),
                         "observaciones": n(obs),
-                    }).eq("id", srv["id"]).execute()
+                    }).eq("id", sid).execute()
                     st.success("Servicio actualizado correctamente.")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error: {e}")
 
-    # ── Vista de datos actuales ───────────────────────────────
+    # Vista de datos actuales
     st.divider()
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -205,62 +161,51 @@ with tab_ficha:
         st.markdown("#### 📞 Contactos")
         st.write(f"**{srv.get('contacto_nombre') or '—'}**")
         st.write(f"{srv.get('contacto_cargo') or '—'}")
-        if srv.get("contacto_email"):
-            st.write(f"✉️ {srv['contacto_email']}")
-        if srv.get("contacto_telefono"):
-            st.write(f"📞 {srv['contacto_telefono']}")
-        if srv.get("contacto_movil"):
-            st.write(f"📱 {srv['contacto_movil']}")
+        if srv.get("contacto_email"):   st.write(f"✉️ {srv['contacto_email']}")
+        if srv.get("contacto_telefono"): st.write(f"📞 {srv['contacto_telefono']}")
+        if srv.get("contacto_movil"):   st.write(f"📱 {srv['contacto_movil']}")
         if srv.get("contacto2_nombre"):
             st.markdown("**Contacto secundario:**")
             st.write(f"{srv['contacto2_nombre']}")
-            if srv.get("contacto2_email"):
-                st.write(f"✉️ {srv['contacto2_email']}")
-            if srv.get("contacto2_telefono"):
-                st.write(f"📞 {srv['contacto2_telefono']}")
+            if srv.get("contacto2_email"):    st.write(f"✉️ {srv['contacto2_email']}")
+            if srv.get("contacto2_telefono"): st.write(f"📞 {srv['contacto2_telefono']}")
     with c3:
         st.markdown("#### 📋 Datos del servicio")
         st.write(f"Inicio: {srv.get('fecha_inicio_contrato') or '—'}")
         if srv.get("fecha_fin_contrato"):
             st.write(f"Fin: {srv['fecha_fin_contrato']}")
         else:
-            st.markdown("<span style='background:#DCFCE7;color:#166534;padding:2px 10px;border-radius:6px;font-size:.85rem;font-weight:600'>✅ ACTIVO — sin fecha de fin</span>", unsafe_allow_html=True)
-        if srv.get("facturacion_email"):
-            st.write(f"Facturación: {srv['facturacion_email']}")
-        if srv.get("facturacion_forma_pago"):
-            st.write(f"Pago: **{srv['facturacion_forma_pago']}**")
-        if srv.get("numero_cuenta"):
-            st.write(f"IBAN: `{srv['numero_cuenta']}`")
-        if srv.get("observaciones"):
-            st.caption(f"📌 {srv['observaciones']}")
+            st.markdown("<span style='background:#DCFCE7;color:#166534;padding:2px 10px;"
+                        "border-radius:6px;font-size:.85rem;font-weight:600'>✅ ACTIVO — sin fecha de fin</span>",
+                        unsafe_allow_html=True)
+        if srv.get("facturacion_email"):      st.write(f"Facturación: {srv['facturacion_email']}")
+        if srv.get("facturacion_forma_pago"): st.write(f"Pago: **{srv['facturacion_forma_pago']}**")
+        if srv.get("numero_cuenta"):          st.write(f"IBAN: `{srv['numero_cuenta']}`")
+        if srv.get("observaciones"):          st.caption(f"📌 {srv['observaciones']}")
 
-    # ── Repositorio de documentos ─────────────────────────────
+    # Repositorio de documentos
     st.divider()
     st.markdown("#### 📁 Documentos del servicio")
-
     try:
-        docs = get_documentos(srv["id"])
+        docs = get_documentos(sid)
         tabla_docs_ok = True
     except Exception:
         docs = []
         tabla_docs_ok = False
 
     if not tabla_docs_ok:
-        st.warning(
-            "La tabla de documentos no existe todavía en Supabase. "
-            "Ejecuta el script `db/documentos.sql` en el SQL Editor de Supabase para activar esta función."
-        )
+        st.warning("La tabla de documentos no existe. Ejecuta el SQL de esquema en Supabase.")
     else:
-        # Subir nuevo documento
         with st.expander("➕ Subir nuevo documento", expanded=len(docs) == 0):
-            with st.form("form_doc"):
+            with st.form(f"form_doc_{sid}"):
                 c1, c2 = st.columns(2)
-                doc_nombre = c1.text_input("Nombre del documento *")
-                doc_tipo   = c2.selectbox("Tipo *", TIPOS_DOCUMENTO)
-                doc_desc   = st.text_input("Descripción (opcional)")
+                doc_nombre = c1.text_input("Nombre del documento *", key=f"dnombre_{sid}")
+                doc_tipo   = c2.selectbox("Tipo *", TIPOS_DOCUMENTO, key=f"dtipo_{sid}")
+                doc_desc   = st.text_input("Descripción (opcional)", key=f"ddesc_{sid}")
                 archivo    = st.file_uploader(
-                    "Selecciona archivo (PDF, Word, Excel, imagen...)",
-                    type=["pdf","doc","docx","xls","xlsx","jpg","jpeg","png","txt","zip"]
+                    "Archivo (PDF, Word, Excel, imagen...)",
+                    type=["pdf","doc","docx","xls","xlsx","jpg","jpeg","png","txt","zip"],
+                    key=f"dfile_{sid}"
                 )
                 if st.form_submit_button("📤 Subir documento", type="primary"):
                     if not doc_nombre:
@@ -271,12 +216,9 @@ with tab_ficha:
                         with st.spinner("Subiendo..."):
                             try:
                                 subir_documento(
-                                    servicio_id   = srv["id"],
-                                    nombre        = doc_nombre,
-                                    tipo          = doc_tipo,
-                                    archivo_bytes = archivo.read(),
-                                    nombre_archivo= archivo.name,
-                                    descripcion   = doc_desc or None,
+                                    servicio_id=sid, nombre=doc_nombre, tipo=doc_tipo,
+                                    archivo_bytes=archivo.read(), nombre_archivo=archivo.name,
+                                    descripcion=doc_desc or None,
                                 )
                                 st.success(f"Documento **{doc_nombre}** subido.")
                                 st.rerun()
@@ -284,44 +226,93 @@ with tab_ficha:
                                 st.error(f"Error al subir: {e}")
 
         if not docs:
-            st.info("No hay documentos todavía. Usa el botón de arriba para subir el primero.")
+            st.info("No hay documentos todavía.")
         else:
             st.write(f"**{len(docs)} documento(s)**")
-            TIPO_COLORES = {
-                "Contrato":                ("📜", "#EDE9FE", "#4C1D95"),
-                "Seguro vehículo":         ("🛡️", "#DCFCE7", "#166534"),
-                "Permiso / Autorización":  ("✅", "#FEF9C3", "#854D0E"),
-                "Factura":                 ("💶", "#FEE2E2", "#991B1B"),
-                "Parte de trabajo":        ("📋", "#E0F2FE", "#0C4A6E"),
-                "Ficha técnica vehículo":  ("🔧", "#F3F4F6", "#374151"),
-                "Documentación empleado":  ("👤", "#FEF3C7", "#92400E"),
-                "Acuerdo de servicio":     ("🤝", "#F0FDF4", "#14532D"),
-                "Otro":                    ("📎", "#F9FAFB", "#4B5563"),
-            }
             for doc in docs:
-                ico_tipo, bg, fg = TIPO_COLORES.get(doc["tipo"], ("📎", "#F9FAFB", "#4B5563"))
-                ico_archivo = get_icono_tipo(doc["nombre_archivo"])
+                ico_tipo, bg, fg = TIPO_COLORES_DOC.get(doc["tipo"], ("📎", "#F9FAFB", "#4B5563"))
+                ico_arch = get_icono_tipo(doc["nombre_archivo"])
                 with st.container(border=True):
                     c1, c2, c3, c4, c5 = st.columns([0.4, 2.5, 1.5, 2, 1.2])
-                    c1.markdown(f"<div style='font-size:1.5rem;text-align:center'>{ico_archivo}</div>",
+                    c1.markdown(f"<div style='font-size:1.4rem;text-align:center'>{ico_arch}</div>",
                                 unsafe_allow_html=True)
                     with c2:
                         st.write(f"**{doc['nombre']}**")
-                        if doc.get("descripcion"):
-                            st.caption(doc["descripcion"])
-                    c3.markdown(
-                        f"<span style='background:{bg};color:{fg};padding:2px 8px;"
-                        f"border-radius:6px;font-size:.75rem'>{ico_tipo} {doc['tipo']}</span>",
-                        unsafe_allow_html=True
-                    )
+                        if doc.get("descripcion"): st.caption(doc["descripcion"])
+                    c3.markdown(f"<span style='background:{bg};color:{fg};padding:2px 8px;"
+                                f"border-radius:6px;font-size:.75rem'>{ico_tipo} {doc['tipo']}</span>",
+                                unsafe_allow_html=True)
                     c4.caption(f"Subido: {str(doc['fecha_subida'])[:10]}")
                     with c5:
                         if doc.get("url_publica"):
                             st.link_button("⬇️ Descargar", doc["url_publica"])
-                        if st.button("🗑️", key=f"del_doc_{doc['id']}", help="Eliminar documento"):
+                        if st.button("🗑️", key=f"del_doc_{doc['id']}_{sid}", help="Eliminar"):
                             borrar_documento(doc["id"], doc["storage_path"])
                             st.success("Documento eliminado.")
                             st.rerun()
+
+
+# ── Lista de servicios ────────────────────────────────────────────
+with tab_lista:
+    fecha     = st.date_input("Ver estado para:", value=hoy, key="fecha_lista")
+    servicios = get_servicios()
+
+    if not servicios:
+        st.info("No hay servicios registrados. Créalos en la pestaña 'Nuevo servicio'.")
+    else:
+        sel_id = st.session_state.get("servicio_seleccionado")
+        for s in servicios:
+            try:
+                estado = calcular_estado_servicio(s, fecha)
+                ico, bg, fg = ESTADO_BADGE[estado.estado]
+            except Exception:
+                ico, bg, fg, estado = "⚪", "#F3F4F6", "#374151", None
+
+            abierto = sel_id == s["id"]
+            with st.container(border=True):
+                c1, c2, c3, c4, c5, c6 = st.columns([1.2, 2.5, 2, 2, 1.5, 1.5])
+                with c1:
+                    st.markdown(f"**`{s['codigo']}`**")
+                    if s.get("zona"): st.caption(s["zona"])
+                with c2:
+                    st.write(s["descripcion"])
+                    if s.get("empresa_nombre"): st.caption(f"🏢 {s['empresa_nombre']}")
+                with c3:
+                    st.write(f"👤 {s['empleado_base_nombre']}")
+                with c4:
+                    st.write(f"🚐 `{s['vehiculo_base_matricula']}`")
+                with c5:
+                    st.markdown(
+                        f"<span style='background:{bg};color:{fg};padding:3px 10px;"
+                        f"border-radius:99px;font-size:.8rem;font-weight:600'>"
+                        f"{ico} {estado.estado.replace('_',' ') if estado else '—'}</span>",
+                        unsafe_allow_html=True
+                    )
+                with c6:
+                    label = "▲ Cerrar" if abierto else "📋 Ver ficha"
+                    if st.button(label, key=f"btn_ficha_{s['id']}"):
+                        if abierto:
+                            st.session_state.pop("servicio_seleccionado", None)
+                        else:
+                            st.session_state["servicio_seleccionado"] = s["id"]
+                        st.rerun()
+
+                if abierto:
+                    st.divider()
+                    _mostrar_ficha(s)
+
+# ── Ficha completa del servicio ───────────────────────────────────
+with tab_ficha:
+    servicios = get_servicios()
+    if not servicios:
+        st.info("No hay servicios creados todavía.")
+    else:
+        opts    = {f"{s['codigo']} — {s['descripcion']}": s for s in servicios}
+        sel_key = st.session_state.get("servicio_seleccionado")
+        default = next((i for i, s in enumerate(servicios) if s["id"] == sel_key), 0)
+        sel     = st.selectbox("Selecciona servicio", list(opts.keys()), index=default, key="sel_ficha")
+        srv     = opts[sel]
+        _mostrar_ficha(srv)
 
 # ── Nuevo servicio ────────────────────────────────────────────────
 with tab_nuevo:
@@ -338,9 +329,9 @@ with tab_nuevo:
             zona        = c3.text_input("Zona / Localidad")
 
             c1, c2 = st.columns(2)
-            fi_cont = c1.date_input("Fecha inicio del servicio", value=hoy)
+            fi_cont     = c1.date_input("Fecha inicio del servicio", value=hoy)
             tiene_fin_n = c2.checkbox("¿Tiene fecha de fin?", value=False, key="nuevo_tiene_fin")
-            ff_cont = None
+            ff_cont     = None
             if tiene_fin_n:
                 ff_cont = c2.date_input("Fecha fin del servicio", value=hoy, key="nuevo_ff")
 
@@ -377,7 +368,6 @@ with tab_nuevo:
                 if not codigo or not descripcion:
                     st.error("Código y descripción son obligatorios.")
                 else:
-                    def n(v): return v if v else None
                     try:
                         get_supabase().table("servicios").insert({
                             "codigo": codigo, "descripcion": descripcion, "zona": n(zona),
