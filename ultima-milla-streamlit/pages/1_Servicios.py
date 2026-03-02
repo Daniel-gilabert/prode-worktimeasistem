@@ -1,5 +1,6 @@
 import streamlit as st
 from datetime import date
+import pandas as pd
 from core.queries import get_servicios, get_empleados, get_vehiculos, calcular_estado_servicio
 from core.documentos import get_documentos, subir_documento, borrar_documento, TIPOS_DOCUMENTO, get_icono_tipo
 from core.db import get_supabase
@@ -7,8 +8,8 @@ from core.db import get_supabase
 st.set_page_config(page_title="Servicios", layout="wide")
 st.title("Servicios")
 
-tab_lista, tab_ficha, tab_nuevo = st.tabs([
-    "Lista de servicios", "Ficha completa", "Nuevo servicio"
+tab_lista, tab_ficha, tab_nuevo, tab_importar = st.tabs([
+    "Lista de servicios", "Ficha completa", "Nuevo servicio", "📥 Importar Excel"
 ])
 
 hoy = date.today()
@@ -393,3 +394,102 @@ with tab_nuevo:
                         st.rerun()
                     except Exception as e:
                         st.error(f"Error: {e}")
+
+# ── Importar desde Excel ──────────────────────────────────────────
+with tab_importar:
+    st.markdown("### Importar servicios desde la plantilla Excel")
+    st.info("Sube la plantilla rellena. Se crearán los servicios que no existan (por código). "
+            "Los que ya existan se actualizarán.")
+
+    archivo = st.file_uploader("Selecciona PLANTILLA_SERVICIOS.xlsx",
+                               type=["xlsx"], key="uploader_servicios")
+
+    if archivo:
+        def limpio(val):
+            s = str(val).strip()
+            return None if s in ('nan', '', 'None', 'NaN') else s
+
+        def a_fecha(val):
+            if limpio(str(val)) is None:
+                return None
+            try:
+                if isinstance(val, date):
+                    return str(val)
+                return pd.to_datetime(val, dayfirst=True).strftime('%Y-%m-%d')
+            except Exception:
+                return None
+
+        try:
+            df = pd.read_excel(archivo, sheet_name="Servicios", header=1, dtype=str)
+            # Quitar fila de ejemplo si existe
+            df = df[~df.apply(lambda r: r.astype(str).str.contains("EJEMPLO", case=False).any(), axis=1)]
+            df = df.dropna(subset=["codigo"])
+            df = df[df["codigo"].str.strip().str.upper() != "CODIGO"]
+
+            st.write(f"**{len(df)} servicios encontrados en el archivo:**")
+            st.dataframe(df[["codigo","descripcion","zona","dimension",
+                              "empresa_nombre","contacto_nombre"]].fillna(""),
+                         use_container_width=True, hide_index=True)
+
+            if st.button("⬆️ Importar a Supabase", type="primary"):
+                sb = get_supabase()
+                ok = err = act = 0
+                errores = []
+
+                for _, row in df.iterrows():
+                    cod = limpio(row.get("codigo"))
+                    if not cod:
+                        continue
+                    datos = {
+                        "codigo":                  cod,
+                        "descripcion":             limpio(row.get("descripcion")) or cod,
+                        "zona":                    limpio(row.get("zona")),
+                        "dimension":               limpio(row.get("dimension")),
+                        "fecha_inicio_contrato":   a_fecha(row.get("fecha_inicio_contrato")),
+                        "fecha_fin_contrato":      a_fecha(row.get("fecha_fin_contrato")),
+                        "empresa_nombre":          limpio(row.get("empresa_nombre")),
+                        "empresa_cif":             limpio(row.get("empresa_cif")),
+                        "empresa_direccion":       limpio(row.get("empresa_direccion")),
+                        "empresa_cp":              limpio(row.get("empresa_cp")),
+                        "empresa_ciudad":          limpio(row.get("empresa_ciudad")),
+                        "empresa_provincia":       limpio(row.get("empresa_provincia")),
+                        "empresa_pais":            limpio(row.get("empresa_pais")) or "España",
+                        "contacto_nombre":         limpio(row.get("contacto_nombre")),
+                        "contacto_cargo":          limpio(row.get("contacto_cargo")),
+                        "contacto_email":          limpio(row.get("contacto_email")),
+                        "contacto_telefono":       limpio(row.get("contacto_telefono")),
+                        "contacto_movil":          limpio(row.get("contacto_movil")),
+                        "contacto2_nombre":        limpio(row.get("contacto2_nombre")),
+                        "contacto2_email":         limpio(row.get("contacto2_email")),
+                        "contacto2_telefono":      limpio(row.get("contacto2_telefono")),
+                        "facturacion_email":       limpio(row.get("facturacion_email")),
+                        "facturacion_forma_pago":  limpio(row.get("facturacion_forma_pago")),
+                        "numero_cuenta":           limpio(row.get("numero_cuenta")),
+                        "observaciones":           limpio(row.get("observaciones")),
+                        "activo": True,
+                    }
+                    try:
+                        existe = sb.table("servicios").select("id").eq("codigo", cod).execute()
+                        if existe.data:
+                            sb.table("servicios").update(datos).eq("codigo", cod).execute()
+                            act += 1
+                        else:
+                            sb.table("servicios").insert(datos).execute()
+                            ok += 1
+                    except Exception as e:
+                        err += 1
+                        errores.append(f"{cod}: {e}")
+
+                if ok:   st.success(f"✅ {ok} servicio(s) creados.")
+                if act:  st.info(f"🔄 {act} servicio(s) actualizados.")
+                if err:  st.error(f"❌ {err} error(s):")
+                for e in errores:
+                    st.caption(e)
+                if ok + act > 0:
+                    st.warning("⚠️ Recuerda asignar el **empleado** y **vehículo** a cada servicio desde la ficha.")
+                    st.rerun()
+
+        except Exception as e:
+            st.error(f"Error al leer el archivo: {e}")
+            st.caption("Asegúrate de que la hoja se llama 'Servicios' y el formato es correcto.")
+
