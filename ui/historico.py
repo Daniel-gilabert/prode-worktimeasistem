@@ -185,59 +185,37 @@ def _tab_semaforo(df: pd.DataFrame, mostrar_todos: bool) -> None:
 def _tab_horas(df: pd.DataFrame, mostrar_todos: bool) -> None:
     horas_mes = (
         df.groupby(["label", "label_sort"])
-        .agg(
-            horas_reales=("horas_reales", "sum"),
-            objetivo=(    "objetivo",     "sum"),
-            horas_extra=( "horas_extra",  "sum"),
-        )
+        .agg(horas_extra=("horas_extra", "sum"))
         .reset_index()
         .sort_values("label_sort")
     )
-    horas_mes["horas_reales"] = horas_mes["horas_reales"].round(1)
-    horas_mes["objetivo"]     = horas_mes["objetivo"].round(1)
-    horas_mes["horas_extra"]  = horas_mes["horas_extra"].round(1)
+    horas_mes["horas_extra"] = horas_mes["horas_extra"].round(1)
 
-    # Gráfica horas reales vs objetivo
-    fig1 = go.Figure()
-    fig1.add_trace(go.Scatter(
-        x=horas_mes["label"], y=horas_mes["objetivo"],
-        mode="lines+markers", name="Objetivo",
-        line=dict(color=C_PRODE, dash="dash"), marker=dict(size=7),
+    fig = go.Figure(go.Bar(
+        x=horas_mes["label"],
+        y=horas_mes["horas_extra"],
+        marker_color=[C_VERDE if v >= 0 else C_ROJO for v in horas_mes["horas_extra"]],
+        text=horas_mes["horas_extra"].astype(str) + " h",
+        textposition="outside",
     ))
-    fig1.add_trace(go.Scatter(
-        x=horas_mes["label"], y=horas_mes["horas_reales"],
-        mode="lines+markers", name="Horas reales",
-        line=dict(color="#2e6da4", width=2), marker=dict(size=7),
-        fill="tonexty", fillcolor="rgba(46,109,164,0.08)",
-    ))
-    fig1.update_layout(
-        title="Horas totales realizadas vs objetivo",
-        xaxis_title="Mes", yaxis_title="Horas",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02),
-        height=320, margin=dict(t=60, b=40), plot_bgcolor="#f8f9fa",
-    )
-    st.plotly_chart(fig1, use_container_width=True)
-
-    # Gráfica horas extra por mes
-    fig2 = go.Figure()
-    colores_extra = [C_VERDE if v >= 0 else C_ROJO for v in horas_mes["horas_extra"]]
-    fig2.add_trace(go.Bar(
-        x=horas_mes["label"], y=horas_mes["horas_extra"],
-        marker_color=colores_extra,
-        text=horas_mes["horas_extra"].astype(str)+" h", textposition="outside",
-        name="Horas extra",
-    ))
-    fig2.add_hline(y=0, line_dash="dot", line_color="gray")
-    fig2.update_layout(
-        title="Horas extra generadas por mes (verde=positivo, rojo=déficit)",
+    fig.add_hline(y=0, line_dash="dot", line_color="gray")
+    fig.update_layout(
+        title="Horas extra generadas por mes (verde = superávit · rojo = déficit)",
         xaxis_title="Mes", yaxis_title="Horas extra",
-        height=320, margin=dict(t=60, b=40), plot_bgcolor="#f8f9fa",
+        height=360, margin=dict(t=60, b=40), plot_bgcolor="#f8f9fa",
     )
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
 
-    # Desplegable: horas extra por empleado
+    total_extra = horas_mes["horas_extra"].sum().round(1)
+    mejor = horas_mes.loc[horas_mes["horas_extra"].idxmax()]
+    peor  = horas_mes.loc[horas_mes["horas_extra"].idxmin()]
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Total acumulado", f"{total_extra:+.1f} h")
+    c2.metric("Mejor mes", f"{mejor['label']}  {mejor['horas_extra']:+.1f} h")
+    c3.metric("Peor mes",  f"{peor['label']}  {peor['horas_extra']:+.1f} h")
+
     st.markdown("---")
-    with st.expander("Horas extra por empleado (desglose por mes)", expanded=False):
+    with st.expander("Desglose por empleado", expanded=False):
         meses_disp = sorted(df["label_sort"].unique())
         mes_sel = st.selectbox(
             "Selecciona mes",
@@ -247,27 +225,25 @@ def _tab_horas(df: pd.DataFrame, mostrar_todos: bool) -> None:
         )
         df_mes = df[df["label_sort"] == mes_sel].copy()
         df_mes = df_mes.sort_values("horas_extra", ascending=False)
-        df_mes["color"] = df_mes["horas_extra"].apply(lambda v: C_VERDE if v >= 0 else C_ROJO)
 
-        fig3 = go.Figure(go.Bar(
+        fig2 = go.Figure(go.Bar(
             x=df_mes["nombre"],
             y=df_mes["horas_extra"],
-            marker_color=df_mes["color"].tolist(),
-            text=df_mes["horas_extra"].round(1).astype(str)+" h",
+            marker_color=[C_VERDE if v >= 0 else C_ROJO for v in df_mes["horas_extra"]],
+            text=df_mes["horas_extra"].round(1).astype(str) + " h",
             textposition="outside",
         ))
-        fig3.add_hline(y=0, line_dash="dot", line_color="gray")
-        fig3.update_layout(
+        fig2.add_hline(y=0, line_dash="dot", line_color="gray")
+        fig2.update_layout(
             title=f"Horas extra por empleado — {df_mes['label'].iloc[0] if not df_mes.empty else ''}",
             xaxis_title="Empleado", yaxis_title="Horas extra",
             height=400, margin=dict(t=60, b=120), plot_bgcolor="#f8f9fa",
             xaxis_tickangle=-35,
         )
-        st.plotly_chart(fig3, use_container_width=True)
+        st.plotly_chart(fig2, use_container_width=True)
 
-        # Tabla resumen
-        tabla = df_mes[["nombre", "laborables", "horas_reales", "objetivo", "horas_extra"]].copy()
-        tabla.columns = ["Empleado", "Laborables", "H. Reales", "Objetivo", "H. Extra"]
+        tabla = df_mes[["nombre", "horas_reales", "objetivo", "horas_extra"]].copy()
+        tabla.columns = ["Empleado", "H. Reales", "Objetivo", "H. Extra"]
         st.dataframe(tabla, use_container_width=True, hide_index=True)
 
 
