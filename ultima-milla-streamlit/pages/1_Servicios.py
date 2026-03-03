@@ -119,11 +119,10 @@ def _mostrar_ficha(srv: dict):
 
             st.subheader("FacturaciÃ³n")
             c1, c2, c3 = st.columns(3)
-            fac_email  = c1.text_input("Email facturaciÃ³n", value=srv.get("facturacion_email","") or "", key=f"facemail_{sid}")
+            fac_email  = c1.text_input("Email facturación", value=srv.get("facturacion_email","") or "", key=f"facemail_{sid}")
             fp_actual  = srv.get("facturacion_forma_pago","") or ""
             fp_idx     = FORMAS_PAGO.index(fp_actual) if fp_actual in FORMAS_PAGO else 0
             fac_pago   = c2.selectbox("Forma de pago", FORMAS_PAGO, index=fp_idx, key=f"facpago_{sid}")
-            num_cuenta = c3.text_input("NÃºmero de cuenta (IBAN)", value=srv.get("numero_cuenta","") or "", key=f"iban_{sid}")
 
             obs = st.text_area("Observaciones", value=srv.get("observaciones","") or "", key=f"obs_{sid}")
 
@@ -146,7 +145,6 @@ def _mostrar_ficha(srv: dict):
                         "contacto2_nombre": n(ct2_nombre), "contacto2_email": n(ct2_email),
                         "contacto2_telefono": n(ct2_tel),
                         "facturacion_email": n(fac_email), "facturacion_forma_pago": n(fac_pago),
-                        "numero_cuenta": n(num_cuenta),
                         "observaciones": n(obs),
                     }).eq("id", sid).execute()
                     st.success("Servicio actualizado correctamente.")
@@ -188,7 +186,6 @@ def _mostrar_ficha(srv: dict):
         if srv.get("dimension"):              st.write(f"DimensiÃ³n: **{srv['dimension']}**")
         if srv.get("facturacion_email"):      st.write(f"FacturaciÃ³n: {srv['facturacion_email']}")
         if srv.get("facturacion_forma_pago"): st.write(f"Pago: **{srv['facturacion_forma_pago']}**")
-        if srv.get("numero_cuenta"):          st.write(f"IBAN: `{srv['numero_cuenta']}`")
         if srv.get("observaciones"):          st.caption(f"ðŸ“Œ {srv['observaciones']}")
 
     # Repositorio de documentos
@@ -371,7 +368,6 @@ with tab_nuevo:
             c1, c2, c3 = st.columns(3)
             fac_email  = c1.text_input("Email facturaciÃ³n")
             fac_pago   = c2.selectbox("Forma de pago", FORMAS_PAGO)
-            num_cuenta = c3.text_input("NÃºmero de cuenta (IBAN)")
 
             if st.form_submit_button("Crear servicio", type="primary"):
                 if not codigo or not descripcion:
@@ -391,7 +387,6 @@ with tab_nuevo:
                             "contacto_nombre": n(ct_nombre), "contacto_cargo": n(ct_cargo),
                             "contacto_email": n(ct_email), "contacto_telefono": n(ct_tel),
                             "facturacion_email": n(fac_email), "facturacion_forma_pago": n(fac_pago),
-                            "numero_cuenta": n(num_cuenta),
                             "activo": True,
                         }).execute()
                         st.success(f"Servicio **{codigo}** creado.")
@@ -468,7 +463,6 @@ with tab_importar:
                         "contacto2_telefono":     limpio(row.get("contacto2_telefono")),
                         "facturacion_email":      limpio(row.get("facturacion_email")),
                         "facturacion_forma_pago": limpio(row.get("facturacion_forma_pago")),
-                        "numero_cuenta":          limpio(row.get("numero_cuenta")),
                         "observaciones":          limpio(row.get("observaciones")),
                         "activo": True,
                     }

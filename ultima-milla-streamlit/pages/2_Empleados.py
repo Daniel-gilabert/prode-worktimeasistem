@@ -37,7 +37,6 @@ with tab_lista:
                 with col_datos:
                     c1, c2, c3, c4 = st.columns([2.5, 1.5, 1.5, 2])
                     c1.markdown(f"**{e['apellidos']}, {e['nombre']}**")
-                    c2.write(f"`{e['dni']}`")
                     c3.write(e.get("telefono") or "â€”")
                     c4.write(e.get("email") or "â€”")
 
@@ -48,17 +47,13 @@ with tab_nuevo:
         with c1:
             nombre    = st.text_input("Nombre *")
             apellidos = st.text_input("Apellidos *")
-            dni       = st.text_input("DNI *")
         with c2:
             telefono = st.text_input("TelÃ©fono")
             email    = st.text_input("Email")
         submitted = st.form_submit_button("Crear empleado", type="primary")
         if submitted:
-            if not nombre or not apellidos or not dni:
-                st.error("Nombre, apellidos y DNI son obligatorios.")
             else:
                 try:
-                    crear_empleado(nombre, apellidos, dni, telefono, email)
                     st.success(f"Empleado **{nombre} {apellidos}** creado.")
                     st.rerun()
                 except Exception as e:
