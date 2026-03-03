@@ -91,21 +91,13 @@ def render_historico(
     df["semaforo"]    = df.apply(_clasificar_semaforo, axis=1)
     df = df.sort_values("label_sort")
 
-    tabs = ["📊 Evolución fichaje", "⏱ Horas extra"]
-    if mostrar_todos:
-        tabs.append("👥 Por responsable")
-
-    tab_list = st.tabs(tabs)
+    tab_list = st.tabs(["📊 Evolución fichaje", "⏱ Horas extra"])
 
     with tab_list[0]:
         _tab_semaforo(df, mostrar_todos, _etiqueta)
 
     with tab_list[1]:
         _tab_horas(df, mostrar_todos, resumen_actual, ids_responsable, _etiqueta)
-
-    if mostrar_todos and len(tab_list) > 2:
-        with tab_list[2]:
-            _tab_por_responsable(df, _etiqueta)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -217,8 +209,6 @@ def _tab_horas(
                         st.success("Guardado")
                         st.rerun()
 
-        st.markdown("#### Distribución de horas extra por departamento — mes en curso")
-
         grupos: dict[str, list[dict]] = {}
         for emp_data in resumen_actual:
             rid = emp_data.get("responsable_id") or "sin_asignar"
@@ -229,25 +219,6 @@ def _tab_horas(
             for rid, emps in grupos.items()
         }
         total_global = round(sum(totales.values()), 1)
-
-        etiquetas = [etiqueta_fn(rid) for rid in totales]
-        valores   = list(totales.values())
-        pcts      = [round(v / total_global * 100, 1) if total_global else 0.0 for v in valores]
-
-        fig = go.Figure(go.Bar(
-            x=etiquetas, y=pcts,
-            marker_color=[C_VERDE if v >= 0 else C_ROJO for v in valores],
-            text=[f"{p}%<br>{v:+.1f} h" for p, v in zip(pcts, valores)],
-            textposition="outside",
-        ))
-        fig.add_hline(y=0, line_dash="dot", line_color="gray")
-        fig.update_layout(
-            title="% de horas extra por departamento sobre el total de la entidad",
-            xaxis_title="Departamento", yaxis_title="% del total",
-            height=420, margin=dict(t=60, b=130),
-            plot_bgcolor="#f8f9fa", xaxis_tickangle=-30,
-        )
-        st.plotly_chart(fig, use_container_width=True)
 
         st.metric("Total horas extra — toda la entidad este mes", f"{total_global:+.1f} h")
         st.markdown("---")
