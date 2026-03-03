@@ -1,12 +1,15 @@
 import streamlit as st
 from datetime import date
 from core.queries import calcular_dashboard
+from core.auth import check_login, logout
 
 st.set_page_config(
     page_title="Control Operativo — Última Milla",
     page_icon="🚚",
     layout="wide",
 )
+
+check_login()
 
 # ── CSS personalizado ────────────────────────────────────────────
 st.markdown("""
@@ -28,6 +31,14 @@ st.markdown("""
 
 # ── Cabecera ────────────────────────────────────────────────────
 st.title("Control Operativo · Última Milla")
+
+# ── Usuario en sidebar ───────────────────────────────────────────
+with st.sidebar:
+    usuario = st.session_state.get("usuario", "")
+    st.markdown(f"👤 **{usuario}**")
+    if st.button("Cerrar sesión", use_container_width=True):
+        logout()
+    st.divider()
 
 # ── Selector de fecha ───────────────────────────────────────────
 col_fecha, col_reset, _ = st.columns([2, 1, 6])

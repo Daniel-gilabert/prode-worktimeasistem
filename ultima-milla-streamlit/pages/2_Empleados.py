@@ -1,16 +1,20 @@
-import streamlit as st
+﻿import streamlit as st
+from core.auth import check_login
+
 from core.queries import get_empleados, crear_empleado, get_ausencias, crear_ausencia, hay_solapamiento_ausencia
 from core.fotos import subir_foto_empleado
 from datetime import date
 
 st.set_page_config(page_title="Empleados", layout="wide")
+
+check_login()
 st.title("Empleados")
 
 tab_lista, tab_nuevo, tab_ausencias, tab_fotos = st.tabs([
-    "Lista", "Nuevo empleado", "Ausencias", "📷 Fotos"
+    "Lista", "Nuevo empleado", "Ausencias", "ðŸ“· Fotos"
 ])
 
-# ── Lista ────────────────────────────────────────────────────────
+# â”€â”€ Lista â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 with tab_lista:
     empleados = get_empleados()
     if not empleados:
@@ -27,17 +31,17 @@ with tab_lista:
                         st.markdown(
                             "<div style='width:64px;height:64px;border-radius:50%;"
                             "background:#E2E8F0;display:flex;align-items:center;"
-                            "justify-content:center;font-size:24px;'>👤</div>",
+                            "justify-content:center;font-size:24px;'>ðŸ‘¤</div>",
                             unsafe_allow_html=True
                         )
                 with col_datos:
                     c1, c2, c3, c4 = st.columns([2.5, 1.5, 1.5, 2])
                     c1.markdown(f"**{e['apellidos']}, {e['nombre']}**")
                     c2.write(f"`{e['dni']}`")
-                    c3.write(e.get("telefono") or "—")
-                    c4.write(e.get("email") or "—")
+                    c3.write(e.get("telefono") or "â€”")
+                    c4.write(e.get("email") or "â€”")
 
-# ── Nuevo empleado ───────────────────────────────────────────────
+# â”€â”€ Nuevo empleado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 with tab_nuevo:
     with st.form("form_empleado"):
         c1, c2 = st.columns(2)
@@ -46,7 +50,7 @@ with tab_nuevo:
             apellidos = st.text_input("Apellidos *")
             dni       = st.text_input("DNI *")
         with c2:
-            telefono = st.text_input("Teléfono")
+            telefono = st.text_input("TelÃ©fono")
             email    = st.text_input("Email")
         submitted = st.form_submit_button("Crear empleado", type="primary")
         if submitted:
@@ -60,7 +64,7 @@ with tab_nuevo:
                 except Exception as e:
                     st.error(f"Error: {e}")
 
-# ── Ausencias ────────────────────────────────────────────────────
+# â”€â”€ Ausencias â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 with tab_ausencias:
     st.subheader("Registrar ausencia")
     empleados = get_empleados()
@@ -95,18 +99,18 @@ with tab_ausencias:
     else:
         for a in ausencias:
             emp    = a.get("empleados") or {}
-            nombre = f"{emp.get('apellidos','')}, {emp.get('nombre','')}" if emp else "—"
+            nombre = f"{emp.get('apellidos','')}, {emp.get('nombre','')}" if emp else "â€”"
             with st.container(border=True):
                 c1, c2, c3, c4 = st.columns([2.5, 1.5, 1.5, 2])
                 c1.write(f"**{nombre}**")
-                c2.write(f"{a['fecha_inicio']} → {a['fecha_fin']}")
+                c2.write(f"{a['fecha_inicio']} â†’ {a['fecha_fin']}")
                 c3.write(a["tipo"])
-                c4.caption(a.get("observaciones") or "—")
+                c4.caption(a.get("observaciones") or "â€”")
 
-# ── Fotos ────────────────────────────────────────────────────────
+# â”€â”€ Fotos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 with tab_fotos:
     st.subheader("Subir foto de empleado")
-    st.info("La foto aparecerá en la lista de empleados y en el dashboard.")
+    st.info("La foto aparecerÃ¡ en la lista de empleados y en el dashboard.")
     empleados = get_empleados()
     opts = {f"{e['apellidos']}, {e['nombre']}": e for e in empleados}
     sel  = st.selectbox("Selecciona empleado", list(opts.keys()), key="sel_emp_foto")
@@ -120,7 +124,7 @@ with tab_fotos:
             st.markdown(
                 "<div style='width:120px;height:120px;border-radius:12px;"
                 "background:#E2E8F0;display:flex;align-items:center;"
-                "justify-content:center;font-size:48px;'>👤</div>",
+                "justify-content:center;font-size:48px;'>ðŸ‘¤</div>",
                 unsafe_allow_html=True
             )
             st.caption("Sin foto")
@@ -142,3 +146,4 @@ with tab_fotos:
                         st.rerun()
                     except Exception as e:
                         st.error(f"Error al subir: {e}")
+

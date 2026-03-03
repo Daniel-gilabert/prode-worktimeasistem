@@ -1,34 +1,38 @@
-import streamlit as st
+﻿import streamlit as st
+from core.auth import check_login
+
 from core.queries import get_vehiculos, actualizar_vehiculo, get_incidencias, crear_incidencia, cerrar_incidencia
 from core.fotos import subir_foto_marca, get_fotos_marcas
 from datetime import date
 
-st.set_page_config(page_title="Vehículos", layout="wide")
-st.title("Vehículos")
+st.set_page_config(page_title="VehÃ­culos", layout="wide")
+
+check_login()
+st.title("VehÃ­culos")
 
 hoy = date.today()
 
 def _estado_fecha(fecha_str):
     if fecha_str is None:
-        return "Sin fecha", "🔘"
+        return "Sin fecha", "ðŸ”˜"
     try:
         d    = date.fromisoformat(str(fecha_str)[:10])
         dias = (d - hoy).days
-        if dias < 0:   return f"VENCIDA · {d.strftime('%d/%m/%Y')}", "🔴"
-        if dias <= 30: return f"Vence en {dias}d · {d.strftime('%d/%m/%Y')}", "🟡"
-        return d.strftime("%d/%m/%Y"), "🟢"
+        if dias < 0:   return f"VENCIDA Â· {d.strftime('%d/%m/%Y')}", "ðŸ”´"
+        if dias <= 30: return f"Vence en {dias}d Â· {d.strftime('%d/%m/%Y')}", "ðŸŸ¡"
+        return d.strftime("%d/%m/%Y"), "ðŸŸ¢"
     except Exception:
-        return str(fecha_str), "⚪"
+        return str(fecha_str), "âšª"
 
 tab_lista, tab_itv_seguro, tab_incidencias, tab_fotos_marca = st.tabs([
-    "Lista de vehículos", "Actualizar ITV / Seguro", "Incidencias", "📷 Fotos por marca"
+    "Lista de vehÃ­culos", "Actualizar ITV / Seguro", "Incidencias", "ðŸ“· Fotos por marca"
 ])
 
-# ── Lista ─────────────────────────────────────────────────────────
+# â”€â”€ Lista â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 with tab_lista:
     vehiculos    = get_vehiculos()
     fotos_marcas = get_fotos_marcas()
-    st.write(f"**{len(vehiculos)} vehículos** en flota")
+    st.write(f"**{len(vehiculos)} vehÃ­culos** en flota")
 
     col_filtro, _ = st.columns([2, 5])
     with col_filtro:
@@ -51,7 +55,7 @@ with tab_lista:
                     st.markdown(
                         "<div style='width:72px;height:52px;border-radius:8px;"
                         "background:#F1F5F9;display:flex;align-items:center;"
-                        "justify-content:center;font-size:28px;'>🚐</div>",
+                        "justify-content:center;font-size:28px;'>ðŸš</div>",
                         unsafe_allow_html=True
                     )
             with col_datos:
@@ -63,11 +67,11 @@ with tab_lista:
                 c5.write(f"ITV: {itv_ico} {itv_txt}")
                 c6.write(f"Seguro: {seg_ico} {seg_txt}")
 
-# ── Actualizar ITV / Seguro ───────────────────────────────────────
+# â”€â”€ Actualizar ITV / Seguro â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 with tab_itv_seguro:
     vehiculos = get_vehiculos()
-    opts = {f"{v['matricula']} — {v['marca']} {v['modelo']}": v for v in vehiculos}
-    sel  = st.selectbox("Selecciona vehículo", list(opts.keys()))
+    opts = {f"{v['matricula']} â€” {v['marca']} {v['modelo']}": v for v in vehiculos}
+    sel  = st.selectbox("Selecciona vehÃ­culo", list(opts.keys()))
     veh  = opts[sel]
 
     itv_actual = date.fromisoformat(str(veh["itv_vigente_hasta"])[:10]) if veh.get("itv_vigente_hasta") else None
@@ -76,42 +80,42 @@ with tab_itv_seguro:
     with st.form("form_itv_seguro"):
         c1, c2 = st.columns(2)
         with c1:
-            nueva_itv = st.date_input("ITV válida hasta *", value=itv_actual or hoy)
+            nueva_itv = st.date_input("ITV vÃ¡lida hasta *", value=itv_actual or hoy)
         with c2:
-            nuevo_seg = st.date_input("Seguro válido hasta *", value=seg_actual or hoy)
+            nuevo_seg = st.date_input("Seguro vÃ¡lido hasta *", value=seg_actual or hoy)
         bastidor    = st.text_input("Bastidor",    value=veh.get("bastidor") or "")
         aseguradora = st.text_input("Aseguradora", value=veh.get("aseguradora") or "")
-        poliza      = st.text_input("Nº Póliza",   value=veh.get("poliza") or "")
+        poliza      = st.text_input("NÂº PÃ³liza",   value=veh.get("poliza") or "")
         submitted = st.form_submit_button("Guardar cambios", type="primary")
         if submitted:
             try:
                 actualizar_vehiculo(veh["id"], nueva_itv, nuevo_seg, bastidor or None,
                                     aseguradora or None, poliza or None)
-                st.success(f"Vehículo **{veh['matricula']}** actualizado.")
+                st.success(f"VehÃ­culo **{veh['matricula']}** actualizado.")
                 st.rerun()
             except Exception as e:
                 st.error(f"Error: {e}")
 
-# ── Incidencias ───────────────────────────────────────────────────
+# â”€â”€ Incidencias â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 with tab_incidencias:
     vehiculos = get_vehiculos()
     st.subheader("Registrar incidencia")
     with st.form("form_incidencia"):
-        opts = {f"{v['matricula']} — {v['marca']} {v['modelo']}": v["id"] for v in vehiculos}
-        sel  = st.selectbox("Vehículo *", list(opts.keys()))
+        opts = {f"{v['matricula']} â€” {v['marca']} {v['modelo']}": v["id"] for v in vehiculos}
+        sel  = st.selectbox("VehÃ­culo *", list(opts.keys()))
         c1, c2 = st.columns(2)
         with c1:
             gravedad    = st.radio("Gravedad *", ["leve", "grave"], horizontal=True,
-                                   help="Grave = vehículo fuera de servicio")
+                                   help="Grave = vehÃ­culo fuera de servicio")
             fi          = st.date_input("Fecha inicio *", value=hoy)
         with c2:
-            descripcion = st.text_area("Descripción *", height=100)
-            ya_resuelta = st.checkbox("Ya está resuelta")
-            ff          = st.date_input("Fecha resolución", value=hoy) if ya_resuelta else None
+            descripcion = st.text_area("DescripciÃ³n *", height=100)
+            ya_resuelta = st.checkbox("Ya estÃ¡ resuelta")
+            ff          = st.date_input("Fecha resoluciÃ³n", value=hoy) if ya_resuelta else None
         submitted = st.form_submit_button("Registrar", type="primary")
         if submitted:
             if not descripcion:
-                st.error("La descripción es obligatoria.")
+                st.error("La descripciÃ³n es obligatoria.")
             else:
                 try:
                     crear_incidencia(opts[sel], gravedad, descripcion, fi, ff)
@@ -128,8 +132,8 @@ with tab_incidencias:
     else:
         for i in abiertas:
             veh_info = i.get("vehiculos") or {}
-            mat      = veh_info.get("matricula", "—")
-            ico      = "🔴" if i["gravedad"] == "grave" else "🟡"
+            mat      = veh_info.get("matricula", "â€”")
+            ico      = "ðŸ”´" if i["gravedad"] == "grave" else "ðŸŸ¡"
             with st.container(border=True):
                 c1, c2, c3, c4 = st.columns([1.5, 1, 3, 2])
                 c1.write(f"**`{mat}`**")
@@ -148,14 +152,14 @@ with tab_incidencias:
             st.info("No hay incidencias cerradas.")
         for i in cerradas:
             veh_info = i.get("vehiculos") or {}
-            mat      = veh_info.get("matricula", "—")
-            ico      = "🔴" if i["gravedad"] == "grave" else "🟡"
-            st.text(f"{ico} [{mat}] {i['fecha_inicio']} → {i['fecha_fin']} | {i['descripcion']}")
+            mat      = veh_info.get("matricula", "â€”")
+            ico      = "ðŸ”´" if i["gravedad"] == "grave" else "ðŸŸ¡"
+            st.text(f"{ico} [{mat}] {i['fecha_inicio']} â†’ {i['fecha_fin']} | {i['descripcion']}")
 
-# ── Fotos por marca ───────────────────────────────────────────────
+# â”€â”€ Fotos por marca â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 with tab_fotos_marca:
-    st.subheader("Foto representativa por marca de vehículo")
-    st.info("Sube una foto por cada marca. Esa imagen aparecerá en todos los vehículos de esa marca.")
+    st.subheader("Foto representativa por marca de vehÃ­culo")
+    st.info("Sube una foto por cada marca. Esa imagen aparecerÃ¡ en todos los vehÃ­culos de esa marca.")
 
     fotos_marcas = get_fotos_marcas()
     marcas       = list(fotos_marcas.keys())
@@ -167,15 +171,15 @@ with tab_fotos_marca:
             url = fotos_marcas.get(marca)
             if url:
                 st.image(url, caption=marca, width=120)
-                st.success(f"✓ {marca}")
+                st.success(f"âœ“ {marca}")
             else:
                 st.markdown(
                     f"<div style='width:120px;height:80px;border-radius:8px;"
                     f"background:#F1F5F9;display:flex;align-items:center;"
-                    f"justify-content:center;font-size:36px;'>🚐</div>",
+                    f"justify-content:center;font-size:36px;'>ðŸš</div>",
                     unsafe_allow_html=True
                 )
-                st.warning(f"Sin foto — {marca}")
+                st.warning(f"Sin foto â€” {marca}")
 
     st.divider()
 
@@ -201,3 +205,4 @@ with tab_fotos_marca:
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error al subir: {e}")
+
