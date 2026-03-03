@@ -39,9 +39,9 @@ def render_login() -> bool:
     col_l, col_c, col_r = st.columns([1, 2, 1])
     with col_c:
         if os.path.exists(_logo):
-            _, img_col, _ = st.columns([1, 2, 1])
+            _, img_col, _ = st.columns([1, 3, 1])
             with img_col:
-                st.image(_logo, width=160)
+                st.image(_logo, width=220)
         st.markdown(
             """
             <div style="
