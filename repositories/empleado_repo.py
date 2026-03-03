@@ -27,17 +27,39 @@ def _fetch_empleado_by_email(email: str) -> list[dict]:
     return r.data
 
 
+def _descendientes(raiz_id: str, todos: list[Empleado]) -> list[Empleado]:
+    """Devuelve todos los empleados que están por debajo de raiz_id en la jerarquía (recursivo)."""
+    hijos_de: dict[str, list[Empleado]] = {}
+    for e in todos:
+        pid = e.responsable_id
+        if pid:
+            hijos_de.setdefault(pid, []).append(e)
+
+    resultado: list[Empleado] = []
+    cola = list(hijos_de.get(raiz_id, []))
+    visitados = {raiz_id}
+    while cola:
+        emp = cola.pop()
+        if emp.id in visitados:
+            continue
+        visitados.add(emp.id)
+        resultado.append(emp)
+        cola.extend(hijos_de.get(emp.id, []))
+    return resultado
+
+
 class EmpleadoRepository:
     def get_todos_activos(self) -> list[Empleado]:
         rows = _fetch_empleados_activos()
         return [Empleado.from_dict(r) for r in rows]
 
     def get_activos(self, usuario: Empleado) -> list[Empleado]:
+        """Devuelve empleados visibles para el usuario — recursivo hacia abajo."""
         rows = _fetch_empleados_activos()
-        empleados = [Empleado.from_dict(r) for r in rows]
-        if not usuario.es_admin:
-            empleados = [e for e in empleados if e.responsable_id == usuario.id]
-        return empleados
+        todos = [Empleado.from_dict(r) for r in rows]
+        if usuario.es_admin:
+            return todos
+        return _descendientes(usuario.id, todos)
 
     def get_by_email(self, email: str) -> Optional[Empleado]:
         rows = _fetch_empleado_by_email(email)
