@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Optional
 from models.empleado import Empleado
 from repositories.empleado_repo import EmpleadoRepository
+from repositories.panel_acceso_repo import PanelAccesoRepository
 from repositories import auditoria_repo
 
 logger = logging.getLogger(__name__)
@@ -17,40 +18,40 @@ class Rol(str, Enum):
 
 class AuthService:
     def __init__(self):
-        self._repo = EmpleadoRepository()
+        self._repo       = EmpleadoRepository()
+        self._panel_repo = PanelAccesoRepository()
 
     def login(self, email: str) -> Optional[Empleado]:
         email = email.strip().lower()
 
+        # 1 — Solo dominio corporativo
         if not email.endswith(f"@{DOMINIO_PERMITIDO}"):
             logger.warning("Login bloqueado — dominio no permitido: %s", email)
-            auditoria_repo.registrar(
-                email=email,
-                accion="LOGIN",
-                detalle="Dominio no permitido",
-                resultado="bloqueado",
-            )
+            auditoria_repo.registrar(email, "LOGIN", "Dominio no permitido", "bloqueado")
             return None
 
+        # 2 — Debe estar en la tabla empleados con rol activo
         empleado = self._repo.get_by_email(email)
-        if empleado and (empleado.es_responsable or empleado.es_admin):
-            logger.info("Login exitoso: %s (admin=%s)", email, empleado.es_admin)
-            auditoria_repo.registrar(
-                email=email,
-                accion="LOGIN",
-                detalle=f"admin={empleado.es_admin}",
-                resultado="ok",
-            )
-            return empleado
+        if not empleado:
+            # Comprueba si al menos está en panel_acceso (usuario de panel sin ficha)
+            if self._panel_repo.tiene_acceso(email):
+                logger.warning("Panel user sin ficha en empleados: %s", email)
+                auditoria_repo.registrar(email, "LOGIN", "En panel_acceso pero sin registro en empleados", "denegado")
+            else:
+                logger.warning("Login denegado — correo no registrado: %s", email)
+                auditoria_repo.registrar(email, "LOGIN", "Correo no registrado en la base de datos", "denegado")
+            return None
 
-        logger.warning("Login denegado — sin permisos: %s", email)
-        auditoria_repo.registrar(
-            email=email,
-            accion="LOGIN",
-            detalle="Correo no registrado o sin rol asignado",
-            resultado="denegado",
-        )
-        return None
+        # 3 — Debe tener rol asignado (responsable o admin)
+        if not (empleado.es_responsable or empleado.es_admin):
+            logger.warning("Login denegado — sin rol asignado: %s", email)
+            auditoria_repo.registrar(email, "LOGIN", "Sin rol de responsable ni admin asignado", "denegado")
+            return None
+
+        # 4 — Acceso concedido
+        logger.info("Login exitoso: %s (admin=%s)", email, empleado.es_admin)
+        auditoria_repo.registrar(email, "LOGIN", f"admin={empleado.es_admin}", "ok")
+        return empleado
 
     def verificar_rol(self, usuario: Empleado, rol: Rol) -> bool:
         if rol == Rol.ADMIN:

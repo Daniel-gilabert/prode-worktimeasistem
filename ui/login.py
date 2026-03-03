@@ -74,6 +74,6 @@ def render_login() -> bool:
             st.session_state["usuario"] = usuario
             st.rerun()
         else:
-            st.error("Correo no autorizado o sin permisos de acceso.")
+            st.error("Acceso denegado. Solo pueden acceder responsables registrados con correo @prode.es.")
 
     return False
