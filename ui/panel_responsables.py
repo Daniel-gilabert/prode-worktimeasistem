@@ -151,22 +151,6 @@ def render_panel_responsables(
         m3.metric("1-2 días sin fichar",  f"{naranjas_g} ({_pct(naranjas_g, total_g)})")
         m4.metric("≥3 días sin fichar",   f"{rojos_g} ({_pct(rojos_g, total_g)})")
 
-        # Botón PowerBI
-        powerbi_url = os.environ.get("POWERBI_URL", "").strip()
-        st.markdown("<div style='margin:10px 0 4px'></div>", unsafe_allow_html=True)
-        pb_col, _ = st.columns([2, 5])
-        with pb_col:
-            if powerbi_url:
-                st.link_button(
-                    "Abrir informe PowerBI",
-                    url=powerbi_url,
-                    use_container_width=True,
-                )
-            else:
-                st.caption(
-                    "Añade `POWERBI_URL=https://...` en el archivo `.env` para activar el botón."
-                )
-
         st.markdown("---")
 
         # Tarjetas por responsable
