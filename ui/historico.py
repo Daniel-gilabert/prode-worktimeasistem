@@ -1,9 +1,9 @@
 import streamlit as st
-import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 from models.empleado import Empleado
 from repositories.historico_repo import HistoricoRepository
+from repositories.departamento_repo import DepartamentoRepository
 
 MESES_ES = {
     1: "Ene", 2: "Feb", 3: "Mar", 4: "Abr",
@@ -12,6 +12,7 @@ MESES_ES = {
 }
 
 _hist_repo = HistoricoRepository()
+_dept_repo = DepartamentoRepository()
 
 C_VERDE   = "#28a745"
 C_AZUL    = "#17a2b8"
@@ -43,13 +44,21 @@ def render_historico(
     mostrar_todos: bool = False,
     todos_empleados: list | None = None,
 ) -> None:
+    todos_empleados = todos_empleados or []
+    dept_map = _dept_repo.get_todos()
+    mapa_resp = {e.id: e.apellidos_y_nombre for e in todos_empleados if e.es_responsable or e.es_admin}
+    ids_responsable = {e.id for e in todos_empleados if e.es_responsable or e.es_admin}
+
+    def _etiqueta(rid: str) -> str:
+        d = dept_map.get(rid, "")
+        return d if d else mapa_resp.get(rid, rid[:12] if rid else "Sin asignar")
+
     st.divider()
     st.markdown('<a name="historico-evolucion"></a>', unsafe_allow_html=True)
     st.subheader("Histórico y evolución")
 
     responsable_id = "global" if mostrar_todos else usuario.id
 
-    # ── Guardar periodo ───────────────────────────────────────────────────────
     col_btn, col_info = st.columns([2, 5])
     with col_btn:
         if st.button(
@@ -67,76 +76,69 @@ def render_historico(
     with col_info:
         st.caption("Guarda el resumen del mes para incluirlo en las gráficas de evolución.")
 
-    # ── Archivos Excel ────────────────────────────────────────────────────────
     with st.expander("Archivos Excel guardados", expanded=False):
         _render_archivos(usuario, responsable_id, anno, mes, resumen_actual)
 
-    # ── Cargar histórico ──────────────────────────────────────────────────────
     historico = _hist_repo.get_historico(responsable_id)
     if not historico:
         st.info("Guarda al menos un periodo para ver las gráficas de evolución.")
         return
 
     df = pd.DataFrame(historico)
-    df["label"]      = df.apply(lambda r: _label_mes(int(r["anno"]), int(r["mes"])), axis=1)
-    df["label_sort"] = df["anno"].astype(str) + df["mes"].astype(str).str.zfill(2)
+    df["label"]       = df.apply(lambda r: _label_mes(int(r["anno"]), int(r["mes"])), axis=1)
+    df["label_sort"]  = df["anno"].astype(str) + df["mes"].astype(str).str.zfill(2)
     df["horas_extra"] = pd.to_numeric(df.get("horas_extra", 0), errors="coerce").fillna(0)
+    df["semaforo"]    = df.apply(_clasificar_semaforo, axis=1)
     df = df.sort_values("label_sort")
 
-    # ── Tabs ─────────────────────────────────────────────────────────────────
-    tabs = ["📊 Evolución fichaje", "⏱ Horas y horas extra"]
+    tabs = ["📊 Evolución fichaje", "⏱ Horas extra"]
     if mostrar_todos:
         tabs.append("👥 Por responsable")
 
     tab_list = st.tabs(tabs)
 
     with tab_list[0]:
-        _tab_semaforo(df, mostrar_todos)
+        _tab_semaforo(df, mostrar_todos, _etiqueta)
 
     with tab_list[1]:
-        _tab_horas(df, mostrar_todos, resumen_actual, todos_empleados or [])
+        _tab_horas(df, mostrar_todos, resumen_actual, ids_responsable, _etiqueta)
 
     if mostrar_todos and len(tab_list) > 2:
         with tab_list[2]:
-            _tab_por_responsable(df)
+            _tab_por_responsable(df, _etiqueta)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
 # TAB 1 — EVOLUCIÓN FICHAJE (4 variables semáforo)
 # ═════════════════════════════════════════════════════════════════════════════
-def _tab_semaforo(df: pd.DataFrame, mostrar_todos: bool) -> None:
-    df = df.copy()
-    df["semaforo"] = df.apply(_clasificar_semaforo, axis=1)
-
+def _tab_semaforo(df: pd.DataFrame, mostrar_todos: bool, etiqueta_fn) -> None:
     resumen_mes = (
         df.groupby(["label", "label_sort"])
         .agg(
-            total=("nombre", "count"),
-            verde=(  "semaforo", lambda x: (x == "Verde (completo)").sum()),
-            azul=(   "semaforo", lambda x: (x == "Azul (errores)").sum()),
-            naranja=("semaforo", lambda x: (x == "Naranja (1-2 días)").sum()),
-            rojo=(   "semaforo", lambda x: (x == "Rojo (≥3 días)").sum()),
+            total=(    "nombre",   "count"),
+            verde=(    "semaforo", lambda x: (x == "Verde (completo)").sum()),
+            azul=(     "semaforo", lambda x: (x == "Azul (errores)").sum()),
+            naranja=(  "semaforo", lambda x: (x == "Naranja (1-2 días)").sum()),
+            rojo=(     "semaforo", lambda x: (x == "Rojo (≥3 días)").sum()),
         )
         .reset_index()
         .sort_values("label_sort")
     )
-
     for col in ["verde", "azul", "naranja", "rojo"]:
         resumen_mes[f"pct_{col}"] = (resumen_mes[col] / resumen_mes["total"] * 100).round(1)
 
-    # Gráfica apilada 100% con las 4 variables
     fig = go.Figure()
     fig.add_trace(go.Bar(x=resumen_mes["label"], y=resumen_mes["pct_verde"],
-        name="Verde — Fichaje completo", marker_color=C_VERDE,
+        name="🟢 Fichaje completo", marker_color=C_VERDE,
         text=resumen_mes["pct_verde"].astype(str)+"%", textposition="inside"))
     fig.add_trace(go.Bar(x=resumen_mes["label"], y=resumen_mes["pct_azul"],
-        name="Azul — Con errores", marker_color=C_AZUL,
+        name="🔵 Con errores", marker_color=C_AZUL,
         text=resumen_mes["pct_azul"].astype(str)+"%", textposition="inside"))
     fig.add_trace(go.Bar(x=resumen_mes["label"], y=resumen_mes["pct_naranja"],
-        name="Naranja — 1-2 días sin fichar", marker_color=C_NARANJA,
+        name="🟠 1-2 días sin fichar", marker_color=C_NARANJA,
         text=resumen_mes["pct_naranja"].astype(str)+"%", textposition="inside"))
     fig.add_trace(go.Bar(x=resumen_mes["label"], y=resumen_mes["pct_rojo"],
-        name="Rojo — ≥3 días sin fichar", marker_color=C_ROJO,
+        name="🔴 ≥3 días sin fichar", marker_color=C_ROJO,
         text=resumen_mes["pct_rojo"].astype(str)+"%", textposition="inside"))
     fig.update_layout(
         barmode="stack",
@@ -147,16 +149,15 @@ def _tab_semaforo(df: pd.DataFrame, mostrar_todos: bool) -> None:
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    # Métricas del último mes guardado
-    ultimo = resumen_mes.iloc[-1]
-    st.caption(f"Último periodo guardado: **{ultimo['label']}** — {int(ultimo['total'])} empleados")
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("🟢 Fichaje completo", f"{int(ultimo['verde'])}  ({ultimo['pct_verde']}%)")
-    c2.metric("🔵 Con errores",      f"{int(ultimo['azul'])}  ({ultimo['pct_azul']}%)")
-    c3.metric("🟠 1-2 días",         f"{int(ultimo['naranja'])}  ({ultimo['pct_naranja']}%)")
-    c4.metric("🔴 ≥3 días",          f"{int(ultimo['rojo'])}  ({ultimo['pct_rojo']}%)")
+    if not resumen_mes.empty:
+        ultimo = resumen_mes.iloc[-1]
+        st.caption(f"Último periodo guardado: **{ultimo['label']}** — {int(ultimo['total'])} empleados")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("🟢 Fichaje completo", f"{int(ultimo['verde'])} ({ultimo['pct_verde']}%)")
+        c2.metric("🔵 Con errores",      f"{int(ultimo['azul'])} ({ultimo['pct_azul']}%)")
+        c3.metric("🟠 1-2 días",         f"{int(ultimo['naranja'])} ({ultimo['pct_naranja']}%)")
+        c4.metric("🔴 ≥3 días",          f"{int(ultimo['rojo'])} ({ultimo['pct_rojo']}%)")
 
-    # Evolución individual (solo vista responsable)
     if not mostrar_todos:
         st.markdown("---")
         empleados_unicos = sorted(df["nombre"].unique().tolist())
@@ -168,87 +169,115 @@ def _tab_semaforo(df: pd.DataFrame, mostrar_todos: bool) -> None:
         )
         if sel:
             df_sel = df[df["nombre"].isin(sel)].sort_values("label_sort")
-            fig2 = px.line(
-                df_sel, x="label", y="sin_fichar", color="nombre", markers=True,
+            fig2 = go.Figure()
+            for nombre in sel:
+                d = df_sel[df_sel["nombre"] == nombre]
+                fig2.add_trace(go.Scatter(
+                    x=d["label"], y=d["sin_fichar"],
+                    mode="lines+markers", name=nombre,
+                ))
+            fig2.update_layout(
                 title="Días sin fichar por empleado (evolución)",
-                labels={"label": "Mes", "sin_fichar": "Días sin fichar", "nombre": "Empleado"},
-                height=360,
-            )
-            fig2.update_layout(plot_bgcolor="#f8f9fa",
+                xaxis_title="Mes", yaxis_title="Días sin fichar",
+                height=360, margin=dict(t=60, b=40), plot_bgcolor="#f8f9fa",
                 legend=dict(orientation="h", yanchor="bottom", y=1.02),
-                margin=dict(t=60, b=40))
+            )
             st.plotly_chart(fig2, use_container_width=True)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# TAB 2 — HORAS Y HORAS EXTRA
+# TAB 2 — HORAS EXTRA
 # ═════════════════════════════════════════════════════════════════════════════
 def _tab_horas(
     df: pd.DataFrame,
     mostrar_todos: bool,
     resumen_actual: list[dict],
-    todos_empleados: list,
+    ids_responsable: set,
+    etiqueta_fn,
 ) -> None:
 
-    # ── VISTA ADMINISTRADOR: semáforo de horas extra por responsable ──────────
+    # ── VISTA ADMINISTRADOR ───────────────────────────────────────────────────
     if mostrar_todos and resumen_actual:
-        # Mapa id → nombre responsable
-        mapa_resp = {e.id: e.apellidos_y_nombre for e in todos_empleados if e.es_responsable or e.es_admin}
+        with st.expander("⚙️ Editar nombres de departamento", expanded=False):
+            st.caption("Asigna el nombre del departamento a cada responsable. Se mostrará en todos los paneles y gráficas.")
+            dept_map_live = _dept_repo.get_todos()
+            todos_resp = [e for _, e in [(etiqueta_fn(eid), eid) for eid in ids_responsable]]
+            # Usamos el df para obtener empleados únicos si no tenemos la lista completa
+            for rid in sorted(ids_responsable):
+                c1, c2, c3 = st.columns([3, 4, 1])
+                c1.markdown(f"`{rid[:8]}…`")
+                nuevo = c2.text_input(
+                    "dept", value=dept_map_live.get(rid, ""),
+                    key=f"dept_{rid}", label_visibility="collapsed",
+                    placeholder="Ej: Casa de Acogida de Córdoba",
+                )
+                with c3:
+                    if st.button("💾", key=f"save_dept_{rid}", help="Guardar"):
+                        _dept_repo.upsert(rid, nuevo)
+                        st.success("Guardado")
+                        st.rerun()
 
-        # Agrupar resumen actual por responsable
+        st.markdown("#### Distribución de horas extra por departamento — mes en curso")
+
         grupos: dict[str, list[dict]] = {}
-        for emp in resumen_actual:
-            rid = emp.get("responsable_id") or "Sin asignar"
-            grupos.setdefault(rid, []).append(emp)
+        for emp_data in resumen_actual:
+            rid = emp_data.get("responsable_id") or "sin_asignar"
+            grupos.setdefault(rid, []).append(emp_data)
 
-        st.markdown("#### Horas extra por responsable — mes en curso")
-        st.caption("Total de horas extra acumuladas por cada equipo en el mes cargado.")
+        totales = {
+            rid: round(sum(e.get("horas_extra", 0) for e in emps), 1)
+            for rid, emps in grupos.items()
+        }
+        total_global = round(sum(totales.values()), 1)
 
-        for rid, empleados_grupo in sorted(
-            grupos.items(),
-            key=lambda x: -sum(e.get("horas_extra", 0) for e in x[1]),
-        ):
-            total_extra = round(sum(e.get("horas_extra", 0) for e in empleados_grupo), 1)
-            nombre_resp = mapa_resp.get(rid, rid[:8] + "…" if len(rid) > 8 else rid)
-            n_emp = len(empleados_grupo)
+        etiquetas = [etiqueta_fn(rid) for rid in totales]
+        valores   = list(totales.values())
+        pcts      = [round(v / total_global * 100, 1) if total_global else 0.0 for v in valores]
 
-            if total_extra == 0:
-                color = "#6c757d"; icono = "⚪"
-            elif total_extra > 20:
-                color = C_ROJO;    icono = "🔴"
-            elif total_extra > 0:
-                color = C_NARANJA; icono = "🟠"
-            else:
-                color = C_VERDE;   icono = "🟢"
+        fig = go.Figure(go.Bar(
+            x=etiquetas, y=pcts,
+            marker_color=[C_VERDE if v >= 0 else C_ROJO for v in valores],
+            text=[f"{p}%<br>{v:+.1f} h" for p, v in zip(pcts, valores)],
+            textposition="outside",
+        ))
+        fig.add_hline(y=0, line_dash="dot", line_color="gray")
+        fig.update_layout(
+            title="% de horas extra por departamento sobre el total de la entidad",
+            xaxis_title="Departamento", yaxis_title="% del total",
+            height=420, margin=dict(t=60, b=130),
+            plot_bgcolor="#f8f9fa", xaxis_tickangle=-30,
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.metric("Total horas extra — toda la entidad este mes", f"{total_global:+.1f} h")
+        st.markdown("---")
+
+        for rid, emps in sorted(grupos.items(), key=lambda x: -abs(totales[x[0]])):
+            total_extra = totales[rid]
+            etiq  = etiqueta_fn(rid)
+            n_emp = len(emps)
+            icono = "⚪" if total_extra == 0 else ("🔴" if total_extra > 20 else ("🟠" if total_extra > 0 else "🟢"))
 
             with st.expander(
-                f"{icono}  {nombre_resp}  —  {n_emp} empleados  —  **{total_extra:+.1f} h extra**",
+                f"{icono}  **{etiq}**  —  {n_emp} personas  —  {total_extra:+.1f} h extra",
                 expanded=False,
             ):
                 rows = []
-                for e in sorted(empleados_grupo, key=lambda x: -x.get("horas_extra", 0)):
+                for e in sorted(emps, key=lambda x: -x.get("horas_extra", 0)):
                     extra = e.get("horas_extra", 0)
-                    em_icono = "🟢" if extra == 0 else ("🟠" if extra < 5 else "🔴")
+                    em_ic = "🟢" if extra == 0 else ("🟠" if 0 < extra <= 10 else "🔴")
                     rows.append({
-                        "Empleado":    e["nombre"],
-                        "H. Reales":  e.get("horas_reales", 0),
-                        "Objetivo":   e.get("objetivo", 0),
-                        "H. Extra":   extra,
-                        "Estado":     em_icono,
+                        "Estado":    em_ic,
+                        "Rol":       "Responsable" if e.get("id", "") in ids_responsable else "Empleado",
+                        "Nombre":    e["nombre"],
+                        "H. Reales": e.get("horas_reales", 0),
+                        "Objetivo":  e.get("objetivo", 0),
+                        "H. Extra":  extra,
                     })
-                st.dataframe(
-                    pd.DataFrame(rows),
-                    use_container_width=True,
-                    hide_index=True,
-                )
-
-        # Métricas globales
-        total_global = round(sum(e.get("horas_extra", 0) for e in resumen_actual), 1)
-        st.divider()
-        st.metric("Total horas extra generadas este mes (todos los equipos)", f"{total_global:+.1f} h")
+                st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
         return
 
-    # ── VISTA RESPONSABLE: gráfica histórica de horas extra ───────────────────
+    # ── VISTA RESPONSABLE: histórico horas extra ──────────────────────────────
     horas_mes = (
         df.groupby(["label", "label_sort"])
         .agg(horas_extra=("horas_extra", "sum"))
@@ -258,11 +287,9 @@ def _tab_horas(
     horas_mes["horas_extra"] = horas_mes["horas_extra"].round(1)
 
     fig = go.Figure(go.Bar(
-        x=horas_mes["label"],
-        y=horas_mes["horas_extra"],
+        x=horas_mes["label"], y=horas_mes["horas_extra"],
         marker_color=[C_VERDE if v >= 0 else C_ROJO for v in horas_mes["horas_extra"]],
-        text=horas_mes["horas_extra"].astype(str) + " h",
-        textposition="outside",
+        text=horas_mes["horas_extra"].astype(str) + " h", textposition="outside",
     ))
     fig.add_hline(y=0, line_dash="dot", line_color="gray")
     fig.update_layout(
@@ -273,11 +300,11 @@ def _tab_horas(
     st.plotly_chart(fig, use_container_width=True)
 
     if not horas_mes.empty:
-        total_extra = horas_mes["horas_extra"].sum().round(1)
+        t     = horas_mes["horas_extra"].sum().round(1)
         mejor = horas_mes.loc[horas_mes["horas_extra"].idxmax()]
         peor  = horas_mes.loc[horas_mes["horas_extra"].idxmin()]
         c1, c2, c3 = st.columns(3)
-        c1.metric("Total acumulado", f"{total_extra:+.1f} h")
+        c1.metric("Total acumulado", f"{t:+.1f} h")
         c2.metric("Mejor mes", f"{mejor['label']}  {mejor['horas_extra']:+.1f} h")
         c3.metric("Peor mes",  f"{peor['label']}  {peor['horas_extra']:+.1f} h")
 
@@ -288,117 +315,86 @@ def _tab_horas(
             st.info("Sin datos históricos.")
             return
         mes_sel = st.selectbox(
-            "Selecciona mes",
-            options=meses_disp,
+            "Selecciona mes", options=meses_disp,
             format_func=lambda x: df[df["label_sort"] == x]["label"].iloc[0],
             key="sel_mes_extra_emp",
         )
-        df_mes = df[df["label_sort"] == mes_sel].copy()
-        df_mes = df_mes.sort_values("horas_extra", ascending=False)
-
+        df_mes = df[df["label_sort"] == mes_sel].copy().sort_values("horas_extra", ascending=False)
         fig2 = go.Figure(go.Bar(
-            x=df_mes["nombre"],
-            y=df_mes["horas_extra"],
+            x=df_mes["nombre"], y=df_mes["horas_extra"],
             marker_color=[C_VERDE if v >= 0 else C_ROJO for v in df_mes["horas_extra"]],
-            text=df_mes["horas_extra"].round(1).astype(str) + " h",
-            textposition="outside",
+            text=df_mes["horas_extra"].round(1).astype(str) + " h", textposition="outside",
         ))
         fig2.add_hline(y=0, line_dash="dot", line_color="gray")
         fig2.update_layout(
-            title=f"Horas extra por empleado — {df_mes['label'].iloc[0] if not df_mes.empty else ''}",
+            title=f"Horas extra — {df_mes['label'].iloc[0] if not df_mes.empty else ''}",
             xaxis_title="Empleado", yaxis_title="Horas extra",
-            height=400, margin=dict(t=60, b=120), plot_bgcolor="#f8f9fa",
-            xaxis_tickangle=-35,
+            height=400, margin=dict(t=60, b=120), plot_bgcolor="#f8f9fa", xaxis_tickangle=-35,
         )
         st.plotly_chart(fig2, use_container_width=True)
-
         tabla = df_mes[["nombre", "horas_reales", "objetivo", "horas_extra"]].copy()
         tabla.columns = ["Empleado", "H. Reales", "Objetivo", "H. Extra"]
         st.dataframe(tabla, use_container_width=True, hide_index=True)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# TAB 3 — POR RESPONSABLE (solo admin / mostrar_todos)
+# TAB 3 — POR RESPONSABLE (solo admin)
 # ═════════════════════════════════════════════════════════════════════════════
-def _tab_por_responsable(df: pd.DataFrame) -> None:
-    if "responsable_id" not in df.columns:
-        st.info("No hay datos de responsable en el histórico.")
+def _tab_por_responsable(df: pd.DataFrame, etiqueta_fn) -> None:
+    if df.empty:
+        st.info("Sin datos históricos.")
         return
 
     meses_disp = sorted(df["label_sort"].unique())
-    col_a, col_b = st.columns([2, 4])
-    with col_a:
-        mes_sel = st.selectbox(
-            "Mes a analizar",
-            options=meses_disp,
-            format_func=lambda x: df[df["label_sort"] == x]["label"].iloc[0],
-            key="sel_mes_resp",
-            index=len(meses_disp)-1,
-        )
-
+    mes_sel = st.selectbox(
+        "Mes a analizar", options=meses_disp,
+        format_func=lambda x: df[df["label_sort"] == x]["label"].iloc[0],
+        key="sel_mes_resp", index=len(meses_disp)-1,
+    )
     df_mes = df[df["label_sort"] == mes_sel].copy()
     label_mes = df_mes["label"].iloc[0] if not df_mes.empty else ""
 
-    # Agrupación por responsable_id
-    agg_resp = (
-        df_mes.groupby("responsable_id")
+    if "responsable_id" not in df_mes.columns:
+        st.info("No hay datos de responsable en el histórico.")
+        return
+
+    df_mes["dept"] = df_mes["responsable_id"].apply(etiqueta_fn)
+
+    agg = (
+        df_mes.groupby("dept")
         .agg(
             empleados=("nombre", "nunique"),
-            horas_extra_total=("horas_extra", "sum"),
-            horas_reales=("horas_reales", "sum"),
-            objetivo=("objetivo", "sum"),
-            verde=("semaforo" if "semaforo" in df_mes.columns else "sin_fichar",
-                   lambda x: (x == "Verde (completo)").sum() if "semaforo" in df_mes.columns else (x == 0).sum()),
+            horas_extra=("horas_extra", "sum"),
+            sin_fichar=("sin_fichar", "sum"),
+            errores=("errores", "sum"),
         )
         .reset_index()
+        .sort_values("horas_extra", ascending=False)
     )
-    agg_resp["horas_extra_total"] = agg_resp["horas_extra_total"].round(1)
-    agg_resp = agg_resp.sort_values("horas_extra_total", ascending=False)
+    agg["horas_extra"] = agg["horas_extra"].round(1)
 
-    # Gráfica horas extra por responsable
-    fig1 = go.Figure(go.Bar(
-        x=agg_resp["responsable_id"],
-        y=agg_resp["horas_extra_total"],
-        marker_color=[C_VERDE if v >= 0 else C_ROJO for v in agg_resp["horas_extra_total"]],
-        text=agg_resp["horas_extra_total"].astype(str)+" h",
-        textposition="outside",
+    fig = go.Figure(go.Bar(
+        x=agg["dept"], y=agg["horas_extra"],
+        marker_color=[C_VERDE if v >= 0 else C_ROJO for v in agg["horas_extra"]],
+        text=agg["horas_extra"].astype(str) + " h", textposition="outside",
     ))
-    fig1.add_hline(y=0, line_dash="dot", line_color="gray")
-    fig1.update_layout(
-        title=f"Horas extra totales por responsable — {label_mes}",
-        xaxis_title="Responsable ID", yaxis_title="Horas extra",
-        height=380, margin=dict(t=60, b=80), plot_bgcolor="#f8f9fa",
-        xaxis_tickangle=-25,
+    fig.add_hline(y=0, line_dash="dot", line_color="gray")
+    fig.update_layout(
+        title=f"Horas extra totales por departamento — {label_mes}",
+        xaxis_title="Departamento", yaxis_title="Horas extra",
+        height=380, margin=dict(t=60, b=100), plot_bgcolor="#f8f9fa", xaxis_tickangle=-25,
     )
-    st.plotly_chart(fig1, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
 
-    # Desplegable por responsable — desglose empleados
     st.markdown("---")
-    st.markdown("**Desglose de horas extra por empleado y responsable**")
-    responsables = sorted(df_mes["responsable_id"].unique())
-    for resp_id in responsables:
-        df_resp = df_mes[df_mes["responsable_id"] == resp_id].sort_values("horas_extra", ascending=False)
-        total_extra = df_resp["horas_extra"].sum().round(1)
-        color_extra = "🟢" if total_extra >= 0 else "🔴"
+    for _, fila in agg.sort_values("horas_extra", ascending=False).iterrows():
+        df_resp = df_mes[df_mes["dept"] == fila["dept"]].sort_values("horas_extra", ascending=False)
+        total = fila["horas_extra"]
+        icono = "⚪" if total == 0 else ("🔴" if total > 20 else ("🟠" if total > 0 else "🟢"))
         with st.expander(
-            f"{color_extra} Responsable: {resp_id}  —  {len(df_resp)} empleados  —  {total_extra:+.1f} h extra",
+            f"{icono}  **{fila['dept']}**  —  {int(fila['empleados'])} empleados  —  {total:+.1f} h extra",
             expanded=False,
         ):
-            fig2 = go.Figure(go.Bar(
-                x=df_resp["nombre"],
-                y=df_resp["horas_extra"],
-                marker_color=[C_VERDE if v >= 0 else C_ROJO for v in df_resp["horas_extra"]],
-                text=df_resp["horas_extra"].round(1).astype(str)+" h",
-                textposition="outside",
-            ))
-            fig2.add_hline(y=0, line_dash="dot", line_color="gray")
-            fig2.update_layout(
-                height=300, margin=dict(t=30, b=100),
-                plot_bgcolor="#f8f9fa", xaxis_tickangle=-30,
-                yaxis_title="Horas extra",
-            )
-            st.plotly_chart(fig2, use_container_width=True)
-
             tabla = df_resp[["nombre", "horas_reales", "objetivo", "horas_extra", "sin_fichar", "errores"]].copy()
             tabla.columns = ["Empleado", "H. Reales", "Objetivo", "H. Extra", "Sin fichar", "Errores"]
             st.dataframe(tabla, use_container_width=True, hide_index=True)
@@ -427,7 +423,7 @@ def _render_archivos(
                 archivo = st.session_state["upload_excel"]
                 ok = _hist_repo.subir_excel(responsable_id, anno, mes, archivo.getvalue())
                 if ok:
-                    st.success("Excel guardado en el almacén.")
+                    st.success("Excel guardado.")
                     st.rerun()
                 else:
                     st.error("No se pudo guardar. Verifica que el bucket 'fichajes' existe en Supabase Storage.")
@@ -438,17 +434,15 @@ def _render_archivos(
         st.info("No hay archivos guardados.")
         return
 
-    st.markdown(f"**{len(archivos)} archivo{'s' if len(archivos) != 1 else ''} guardado{'s' if len(archivos) != 1 else ''}**")
-
+    st.markdown(f"**{len(archivos)} archivo(s) guardado(s)**")
     for archivo in sorted(archivos, key=lambda x: x.get("name", ""), reverse=True):
         nombre = archivo.get("name", "")
         if not nombre:
             continue
         tamaño = archivo.get("metadata", {}).get("size", 0)
-        tamaño_str = f"{round(tamaño / 1024)} KB" if tamaño else ""
-
+        tam_str = f"{round(tamaño / 1024)} KB" if tamaño else ""
         c1, c2, c3 = st.columns([4, 2, 1])
-        c1.markdown(f"📄 **{nombre}** {f'`{tamaño_str}`' if tamaño_str else ''}")
+        c1.markdown(f"📄 **{nombre}** {f'`{tam_str}`' if tam_str else ''}")
         with c2:
             datos = _hist_repo.descargar_excel(responsable_id, nombre)
             if datos:
