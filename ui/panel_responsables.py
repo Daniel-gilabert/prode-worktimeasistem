@@ -189,21 +189,23 @@ def render_panel_responsables(
         m5.metric("🔴 ≥3 días",          f"{rojos_g} ({_pct(rojos_g, total_g)})")
         st.markdown("---")
 
-        ids_admins = {e.id for e in todos_empleados if e.es_admin}
-        ids_responsables_puros = {e.id for e in todos_empleados if e.es_responsable and not e.es_admin}
+        # Cabezas de departamento = responsables que tienen dept asignado en dept_map
+        # Si nadie tiene dept asignado, usa todos los responsables sin sub-responsable encima
+        cabezas_dept = [
+            e for e in todos_empleados
+            if (e.es_responsable or e.es_admin)
+            and dept_map.get(e.id, "").strip()
+        ]
 
-        # Raíz de departamento = responsable (no admin) cuyo jefe directo es admin o no tiene jefe
-        # Excluye sub-responsables (como Esperanza que reporta a Manuel)
-        raices = sorted(
-            [e for e in todos_empleados
-             if e.es_responsable and not e.es_admin
-             and (not e.responsable_id or e.responsable_id in ids_admins)],
-            key=lambda e: _etiqueta(e.id),
-        )
+        # Fallback: si no hay departamentos configurados, usar todos los responsables
+        if not cabezas_dept:
+            cabezas_dept = [e for e in todos_empleados if e.es_responsable or e.es_admin]
+
+        cabezas_dept = sorted(cabezas_dept, key=lambda e: dept_map.get(e.id, e.apellidos_y_nombre))
 
         ids_ya_mostrados: set[str] = set()
 
-        for resp in raices:
+        for resp in cabezas_dept:
             # Orden jerárquico DFS para el detalle: el responsable raíz primero,
             # luego sus sub-responsables, luego sus empleados
             def _orden_dfs(rid: str) -> list[str]:
