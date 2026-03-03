@@ -50,19 +50,15 @@ def _indicador_html(valor: str, etiqueta: str, color: str, subtexto: str = "") -
     )
 
 
-def _descendientes_ids(raiz_id: str, todos: list[Empleado]) -> set[str]:
-    """IDs de todos los empleados por debajo de raiz_id en la jerarquía (recursivo)."""
-    hijos: dict[str, list[str]] = {}
-    for e in todos:
-        if e.responsable_id:
-            hijos.setdefault(e.responsable_id, []).append(e.id)
+def _todos_descendientes_ids(raiz_id: str, hijos_map: dict) -> set[str]:
+    """IDs de todos los empleados por debajo de raiz_id (recursivo)."""
     resultado: set[str] = set()
-    cola = list(hijos.get(raiz_id, []))
+    cola = list(hijos_map.get(raiz_id, []))
     while cola:
         eid = cola.pop()
         if eid not in resultado:
             resultado.add(eid)
-            cola.extend(hijos.get(eid, []))
+            cola.extend(hijos_map.get(eid, []))
     return resultado
 
 
@@ -86,10 +82,10 @@ def _tarjeta_grupo(etiqueta: str, resumenes_grupo: list[dict]) -> None:
     )
 
     c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 3])
-    c1.markdown(_indicador_html(_pct(verdes,   total), "Fichaje OK",   _SEM_VERDE,   f"{verdes} pers."),   unsafe_allow_html=True)
-    c2.markdown(_indicador_html(_pct(azules,   total), "Con errores",  _SEM_AZUL,    f"{azules} pers."),   unsafe_allow_html=True)
-    c3.markdown(_indicador_html(_pct(naranjas, total), "1-2 días",     _SEM_NARANJA, f"{naranjas} pers."), unsafe_allow_html=True)
-    c4.markdown(_indicador_html(_pct(rojos,    total), "≥3 días",      _SEM_ROJO,    f"{rojos} pers."),    unsafe_allow_html=True)
+    c1.markdown(_indicador_html(_pct(verdes,   total), "Fichaje OK",  _SEM_VERDE,   f"{verdes} pers."),   unsafe_allow_html=True)
+    c2.markdown(_indicador_html(_pct(azules,   total), "Con errores", _SEM_AZUL,    f"{azules} pers."),   unsafe_allow_html=True)
+    c3.markdown(_indicador_html(_pct(naranjas, total), "1-2 días",    _SEM_NARANJA, f"{naranjas} pers."), unsafe_allow_html=True)
+    c4.markdown(_indicador_html(_pct(rojos,    total), "≥3 días",     _SEM_ROJO,    f"{rojos} pers."),    unsafe_allow_html=True)
 
     with c5:
         with st.expander(f"Ver detalle — {etiqueta}", expanded=False):
@@ -126,8 +122,12 @@ def render_panel_responsables(
     resumen_por_id = {d["id"]: d for d in resumen_global}
     directorio     = {e.id: e for e in todos_empleados}
 
-    # Responsables de nivel raíz (aquellos cuyo responsable_id no está en el directorio
-    # o no tiene responsable_id — los "dueños de departamento")
+    # Mapa de hijos: responsable_id → lista de ids de empleados directos
+    hijos_map: dict[str, list[str]] = {}
+    for e in todos_empleados:
+        if e.responsable_id:
+            hijos_map.setdefault(e.responsable_id, []).append(e.id)
+
     ids_jefes = {e.id for e in todos_empleados if e.es_responsable or e.es_admin}
 
     def _etiqueta(resp_id: str) -> str:
@@ -137,9 +137,9 @@ def render_panel_responsables(
         emp = directorio.get(resp_id)
         return emp.apellidos_y_nombre if emp else resp_id[:12]
 
-    def _resumenes_dept(resp_id: str) -> list[dict]:
-        """Todos los resumenes de empleados bajo resp_id (recursivo)."""
-        ids = _descendientes_ids(resp_id, todos_empleados)
+    def _resumenes_grupo(resp_id: str) -> list[dict]:
+        """Resumenes de TODOS los empleados bajo resp_id (recursivo, excluyendo al propio responsable)."""
+        ids = _todos_descendientes_ids(resp_id, hijos_map)
         return [resumen_por_id[eid] for eid in ids if eid in resumen_por_id]
 
     st.divider()
@@ -175,32 +175,35 @@ def render_panel_responsables(
         m5.metric("🔴 ≥3 días",          f"{rojos_g} ({_pct(rojos_g, total_g)})")
         st.markdown("---")
 
-        # Responsables raíz de cada departamento (los que tienen dept asignado
-        # o son responsables sin padre responsable)
-        raices_resp = [
+        # Todos los responsables con datos, ordenados por etiqueta (dept o nombre)
+        responsables_con_datos = [
             e for e in todos_empleados
             if (e.es_responsable or e.es_admin)
-            and (not e.responsable_id or e.responsable_id not in ids_jefes)
         ]
-        raices_resp = sorted(raices_resp, key=lambda e: (_etiqueta(e.id)))
+        responsables_con_datos = sorted(responsables_con_datos, key=lambda e: _etiqueta(e.id))
 
-        for resp in raices_resp:
-            resumenes = _resumenes_dept(resp.id)
+        ids_ya_mostrados: set[str] = set()
+
+        for resp in responsables_con_datos:
+            resumenes = _resumenes_grupo(resp.id)
             if not resumenes:
                 continue
-            _tarjeta_grupo(_etiqueta(resp.id), resumenes)
+            # Evitar mostrar empleados duplicados si aparecen en múltiples niveles
+            resumenes_nuevos = [r for r in resumenes if r["id"] not in ids_ya_mostrados]
+            if not resumenes_nuevos:
+                continue
+            ids_ya_mostrados.update(r["id"] for r in resumenes_nuevos)
+            _tarjeta_grupo(_etiqueta(resp.id), resumenes_nuevos)
 
         # Sin responsable
-        ids_con_resp = {eid for eid in resumen_por_id if directorio.get(eid) and directorio[eid].responsable_id}
-        sin_resp = [d for d in resumen_global if d["id"] not in ids_con_resp]
+        sin_resp = [d for d in resumen_global if d["id"] not in ids_ya_mostrados]
         if sin_resp:
             _tarjeta_grupo("Sin departamento asignado", sin_resp)
 
-    # ── Vista: Mi departamento ─────────────────────────────────────────────────
+    # ── Vista: Mi departamento ────────────────────────────────────────────────
     else:
-        resumenes = _resumenes_dept(usuario.id)
+        resumenes = _resumenes_grupo(usuario.id)
         if not resumenes:
             st.info("No hay datos para tu grupo en el periodo cargado.")
             return
-        etiq = _etiqueta(usuario.id)
-        _tarjeta_grupo(etiq, resumenes)
+        _tarjeta_grupo(_etiqueta(usuario.id), resumenes)
