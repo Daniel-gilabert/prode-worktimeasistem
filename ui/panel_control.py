@@ -33,51 +33,109 @@ def render_panel_control(usuario: Empleado) -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# TAB 1 — ROLES (tabla editable)
+# TAB 1 — ROLES
 # ═══════════════════════════════════════════════════════════════════
+_ROLES = ["Empleado", "Coordinador", "Responsable", "Administrador"]
+# Coordinador = es_responsable pero sin departamento propio (sub-responsable)
+# Responsable = es_responsable con departamento asignado (cabeza de dept)
+# Administrador = es_admin
+
+def _rol_label(emp: Empleado, dept_map: dict) -> str:
+    if emp.es_admin:
+        return "Administrador"
+    if emp.es_responsable:
+        return "Responsable" if dept_map.get(emp.id, "").strip() else "Coordinador"
+    return "Empleado"
+
+def _vista_label(emp: Empleado) -> str:
+    if emp.es_admin:
+        return "Administrador"
+    if emp.es_responsable:
+        return "Responsable"
+    return "—"
+
 def _tab_roles() -> None:
-    st.subheader("Gestión de roles")
-    todos = _emp_repo.get_todos_con_inactivos()
-
-    df = pd.DataFrame([{
-        "id":       e.id,
-        "Nombre":   e.apellidos_y_nombre,
-        "Email":    e.email or "",
-        "Activo":   e.activo,
-        "Responsable": e.es_responsable,
-        "Admin":    e.es_admin,
-    } for e in sorted(todos, key=lambda e: e.apellidos_y_nombre)])
-
-    edited = st.data_editor(
-        df.drop(columns=["id"]),
-        use_container_width=True,
-        hide_index=True,
-        num_rows="fixed",
-        column_config={
-            "Nombre":      st.column_config.TextColumn("Nombre", disabled=True),
-            "Email":       st.column_config.TextColumn("Email"),
-            "Activo":      st.column_config.CheckboxColumn("Activo"),
-            "Responsable": st.column_config.CheckboxColumn("Responsable"),
-            "Admin":       st.column_config.CheckboxColumn("Admin"),
-        },
-        key="tabla_roles",
+    st.subheader("Empleados — roles y acceso")
+    st.caption(
+        "**Responsable** = cabeza de departamento (asígnale departamento abajo).  "
+        "**Coordinador** = sub-responsable sin departamento propio.  "
+        "**Acceso app** = puede iniciar sesión."
     )
 
-    if st.button("💾 Guardar todos los cambios", type="primary", use_container_width=True):
-        ids = df["id"].tolist()
-        cambios = 0
-        for i, row in edited.iterrows():
-            emp_id = ids[i]
-            _emp_repo.update_rol_y_email(
-                emp_id,
-                bool(row["Activo"]),
-                bool(row["Responsable"]),
-                bool(row["Admin"]),
-                str(row["Email"]).strip(),
+    todos     = _emp_repo.get_todos_con_inactivos()
+    dept_map  = _dept_repo.get_todos()
+    mapa      = {e.id: e for e in todos}
+    ids_jefes = {e.id for e in todos if e.es_responsable or e.es_admin}
+
+    # Filtros
+    col_f1, col_f2, col_f3 = st.columns([2, 2, 3])
+    filtro_rol    = col_f1.selectbox("Filtrar por rol", ["Todos"] + _ROLES, key="f_rol")
+    filtro_acceso = col_f2.selectbox("Acceso app", ["Todos", "Con acceso", "Sin acceso"], key="f_acc")
+    filtro_buscar = col_f3.text_input("Buscar nombre", placeholder="Escribe para filtrar…", key="f_nom")
+
+    lista = sorted(todos, key=lambda e: e.apellidos_y_nombre)
+    if filtro_buscar:
+        lista = [e for e in lista if filtro_buscar.lower() in e.apellidos_y_nombre.lower()]
+    if filtro_rol != "Todos":
+        lista = [e for e in lista if _rol_label(e, dept_map) == filtro_rol]
+    if filtro_acceso == "Con acceso":
+        lista = [e for e in lista if e.es_responsable or e.es_admin]
+    elif filtro_acceso == "Sin acceso":
+        lista = [e for e in lista if not e.es_responsable and not e.es_admin]
+
+    st.markdown(f"**{len(lista)} empleado(s)**")
+    st.markdown("---")
+
+    for emp in lista:
+        rol_actual   = _rol_label(emp, dept_map)
+        vista_actual = _vista_label(emp)
+        acceso       = emp.es_responsable or emp.es_admin
+        dept_actual  = dept_map.get(emp.id, "")
+
+        with st.expander(
+            f"{'✅' if emp.activo else '❌'}  {emp.apellidos_y_nombre}"
+            f"  ·  {rol_actual}"
+            f"{'  ·  🏢 ' + dept_actual if dept_actual else ''}"
+            f"{'  ·  🔓 ' + vista_actual if acceso else '  ·  🔒 Sin acceso'}",
+            expanded=False,
+        ):
+            c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
+
+            nuevo_email = c1.text_input("Email", value=emp.email or "", key=f"em_{emp.id}")
+            nuevo_activo = c2.checkbox("Activo", value=emp.activo, key=f"ac_{emp.id}")
+
+            nuevo_rol = c3.selectbox(
+                "Rol", options=_ROLES,
+                index=_ROLES.index(rol_actual),
+                key=f"rol_{emp.id}",
             )
-            cambios += 1
-        st.success(f"✅ {cambios} empleados actualizados.")
-        st.rerun()
+
+            # Departamento: solo editable si es Responsable
+            nuevo_dept = dept_actual
+            if nuevo_rol == "Responsable":
+                nuevo_dept = c4.text_input(
+                    "Departamento", value=dept_actual,
+                    key=f"dept_{emp.id}",
+                    placeholder="Casa de Acogida…",
+                )
+            else:
+                c4.markdown(
+                    f"<div style='padding-top:28px;color:#aaa;font-size:0.8rem'>"
+                    f"{'Vista: ' + vista_actual if acceso else 'Sin acceso a la app'}</div>",
+                    unsafe_allow_html=True,
+                )
+
+            if st.button("💾 Guardar", key=f"save_{emp.id}", use_container_width=True):
+                es_admin     = nuevo_rol == "Administrador"
+                es_resp      = nuevo_rol in ("Responsable", "Coordinador")
+                _emp_repo.update_rol_y_email(emp.id, nuevo_activo, es_resp, es_admin, nuevo_email.strip())
+                if nuevo_rol == "Responsable":
+                    _dept_repo.upsert(emp.id, nuevo_dept.strip())
+                elif dept_actual:
+                    # Si deja de ser Responsable, borra el departamento
+                    _dept_repo.upsert(emp.id, "")
+                st.success("Guardado.")
+                st.rerun()
 
 
 # ═══════════════════════════════════════════════════════════════════
