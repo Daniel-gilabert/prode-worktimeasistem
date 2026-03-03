@@ -91,6 +91,7 @@ class CalculoService:
         return {
             "id": emp.id,
             "nombre": emp.apellidos_y_nombre,
+            "responsable_id": emp.responsable_id or "",
             "jornada": jornada,
             "laborables": total_laborables,
             "fichados": dias_fichados,

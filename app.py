@@ -198,7 +198,7 @@ if es_panel_user:
     )
 
     render_panel_responsables(usuario, todos_empleados, resumen_global, mes, anno)
-    render_historico(usuario, resumen_global, anno, mes, mostrar_todos=True)
+    render_historico(usuario, resumen_global, anno, mes, mostrar_todos=True, todos_empleados=todos_empleados)
     st.stop()
 
 # =============================================================================

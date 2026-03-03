@@ -41,6 +41,7 @@ def render_historico(
     anno: int,
     mes: int,
     mostrar_todos: bool = False,
+    todos_empleados: list | None = None,
 ) -> None:
     st.divider()
     st.markdown('<a name="historico-evolucion"></a>', unsafe_allow_html=True)
@@ -93,7 +94,7 @@ def render_historico(
         _tab_semaforo(df, mostrar_todos)
 
     with tab_list[1]:
-        _tab_horas(df, mostrar_todos)
+        _tab_horas(df, mostrar_todos, resumen_actual, todos_empleados or [])
 
     if mostrar_todos and len(tab_list) > 2:
         with tab_list[2]:
@@ -182,7 +183,72 @@ def _tab_semaforo(df: pd.DataFrame, mostrar_todos: bool) -> None:
 # ═════════════════════════════════════════════════════════════════════════════
 # TAB 2 — HORAS Y HORAS EXTRA
 # ═════════════════════════════════════════════════════════════════════════════
-def _tab_horas(df: pd.DataFrame, mostrar_todos: bool) -> None:
+def _tab_horas(
+    df: pd.DataFrame,
+    mostrar_todos: bool,
+    resumen_actual: list[dict],
+    todos_empleados: list,
+) -> None:
+
+    # ── VISTA ADMINISTRADOR: semáforo de horas extra por responsable ──────────
+    if mostrar_todos and resumen_actual:
+        # Mapa id → nombre responsable
+        mapa_resp = {e.id: e.apellidos_y_nombre for e in todos_empleados if e.es_responsable or e.es_admin}
+
+        # Agrupar resumen actual por responsable
+        grupos: dict[str, list[dict]] = {}
+        for emp in resumen_actual:
+            rid = emp.get("responsable_id") or "Sin asignar"
+            grupos.setdefault(rid, []).append(emp)
+
+        st.markdown("#### Horas extra por responsable — mes en curso")
+        st.caption("Total de horas extra acumuladas por cada equipo en el mes cargado.")
+
+        for rid, empleados_grupo in sorted(
+            grupos.items(),
+            key=lambda x: -sum(e.get("horas_extra", 0) for e in x[1]),
+        ):
+            total_extra = round(sum(e.get("horas_extra", 0) for e in empleados_grupo), 1)
+            nombre_resp = mapa_resp.get(rid, rid[:8] + "…" if len(rid) > 8 else rid)
+            n_emp = len(empleados_grupo)
+
+            if total_extra == 0:
+                color = "#6c757d"; icono = "⚪"
+            elif total_extra > 20:
+                color = C_ROJO;    icono = "🔴"
+            elif total_extra > 0:
+                color = C_NARANJA; icono = "🟠"
+            else:
+                color = C_VERDE;   icono = "🟢"
+
+            with st.expander(
+                f"{icono}  {nombre_resp}  —  {n_emp} empleados  —  **{total_extra:+.1f} h extra**",
+                expanded=False,
+            ):
+                rows = []
+                for e in sorted(empleados_grupo, key=lambda x: -x.get("horas_extra", 0)):
+                    extra = e.get("horas_extra", 0)
+                    em_icono = "🟢" if extra == 0 else ("🟠" if extra < 5 else "🔴")
+                    rows.append({
+                        "Empleado":    e["nombre"],
+                        "H. Reales":  e.get("horas_reales", 0),
+                        "Objetivo":   e.get("objetivo", 0),
+                        "H. Extra":   extra,
+                        "Estado":     em_icono,
+                    })
+                st.dataframe(
+                    pd.DataFrame(rows),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+
+        # Métricas globales
+        total_global = round(sum(e.get("horas_extra", 0) for e in resumen_actual), 1)
+        st.divider()
+        st.metric("Total horas extra generadas este mes (todos los equipos)", f"{total_global:+.1f} h")
+        return
+
+    # ── VISTA RESPONSABLE: gráfica histórica de horas extra ───────────────────
     horas_mes = (
         df.groupby(["label", "label_sort"])
         .agg(horas_extra=("horas_extra", "sum"))
@@ -206,17 +272,21 @@ def _tab_horas(df: pd.DataFrame, mostrar_todos: bool) -> None:
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    total_extra = horas_mes["horas_extra"].sum().round(1)
-    mejor = horas_mes.loc[horas_mes["horas_extra"].idxmax()]
-    peor  = horas_mes.loc[horas_mes["horas_extra"].idxmin()]
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Total acumulado", f"{total_extra:+.1f} h")
-    c2.metric("Mejor mes", f"{mejor['label']}  {mejor['horas_extra']:+.1f} h")
-    c3.metric("Peor mes",  f"{peor['label']}  {peor['horas_extra']:+.1f} h")
+    if not horas_mes.empty:
+        total_extra = horas_mes["horas_extra"].sum().round(1)
+        mejor = horas_mes.loc[horas_mes["horas_extra"].idxmax()]
+        peor  = horas_mes.loc[horas_mes["horas_extra"].idxmin()]
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Total acumulado", f"{total_extra:+.1f} h")
+        c2.metric("Mejor mes", f"{mejor['label']}  {mejor['horas_extra']:+.1f} h")
+        c3.metric("Peor mes",  f"{peor['label']}  {peor['horas_extra']:+.1f} h")
 
     st.markdown("---")
     with st.expander("Desglose por empleado", expanded=False):
         meses_disp = sorted(df["label_sort"].unique())
+        if not meses_disp:
+            st.info("Sin datos históricos.")
+            return
         mes_sel = st.selectbox(
             "Selecciona mes",
             options=meses_disp,
