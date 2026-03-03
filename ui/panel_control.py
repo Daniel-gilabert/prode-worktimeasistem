@@ -96,50 +96,75 @@ def _tab_jerarquia() -> None:
     opc_ids    = [""] + [e.id for e in sorted(jefes, key=lambda e: e.apellidos_y_nombre)]
     opc_nombres= ["— Sin asignar —"] + [e.apellidos_y_nombre for e in sorted(jefes, key=lambda e: e.apellidos_y_nombre)]
 
-    # Agrupar por responsable directo
-    grupos: dict[str, list[Empleado]] = {}
-    sin_asignar: list[Empleado] = []
+    # Construir árbol: padre → hijos directos
+    hijos_resp: dict[str, list[Empleado]] = {}   # responsable_id → sub-responsables
+    equipo_de:  dict[str, list[Empleado]] = {}   # responsable_id → empleados normales
+    ids_jefes = {e.id for e in jefes}
+
     for emp in todos:
         if not emp.activo:
             continue
-        if emp.responsable_id and emp.responsable_id in mapa:
-            grupos.setdefault(emp.responsable_id, []).append(emp)
-        elif not emp.es_admin and not emp.es_responsable:
-            sin_asignar.append(emp)
+        pid = emp.responsable_id
+        if emp.id in ids_jefes:
+            # Es sub-responsable
+            if pid and pid in ids_jefes:
+                hijos_resp.setdefault(pid, []).append(emp)
+            # Si no tiene padre jefe → es raíz, se trata abajo
+        else:
+            # Es empleado normal
+            if pid:
+                equipo_de.setdefault(pid, []).append(emp)
 
-    # ── Tarjetas por responsable ──────────────────────────────────
-    for resp in sorted(jefes, key=lambda e: e.apellidos_y_nombre):
-        equipo = sorted(grupos.get(resp.id, []), key=lambda e: e.apellidos_y_nombre)
-        dept   = dept_map.get(resp.id, "")
-        label  = dept if dept else resp.apellidos_y_nombre
-        n      = len(equipo)
-        rol    = "👑 Admin" if resp.es_admin else "👤 Responsable"
+    # Raíces: jefes cuyo responsable_id no apunta a otro jefe
+    raices = sorted(
+        [e for e in jefes if not (e.responsable_id and e.responsable_id in ids_jefes)],
+        key=lambda e: e.apellidos_y_nombre,
+    )
+
+    sin_asignar = [
+        e for e in todos
+        if e.activo and e.id not in ids_jefes
+        and (not e.responsable_id or e.responsable_id not in ids_jefes)
+        and e.responsable_id not in {emp.id for emp in todos}
+    ]
+    # Más simple: sin responsable asignado en absoluto
+    sin_asignar = [
+        e for e in todos
+        if e.activo and e.id not in ids_jefes and not e.responsable_id
+    ]
+
+    def _render_grupo(resp: Empleado, nivel: int) -> None:
+        dept      = dept_map.get(resp.id, "")
+        n_emps    = len(equipo_de.get(resp.id, []))
+        n_subs    = len(hijos_resp.get(resp.id, []))
+        n_total   = n_emps + n_subs
+        rol_txt   = "👑 Admin" if resp.es_admin else "👤 Responsable"
         dept_badge = (
             f"&nbsp;<span style='background:{_AZUL};color:white;font-size:0.7rem;"
-            f"padding:2px 8px;border-radius:10px'>{dept}</span>"
+            f"padding:2px 7px;border-radius:10px'>{dept}</span>"
         ) if dept else ""
+        indent_px  = nivel * 24
+        borde_color = _AZUL if nivel == 0 else "#6c8ebf"
+        bg_color    = "#f0f4f8" if nivel == 0 else "#f7f9fc"
 
         st.markdown(
-            f"<div style='background:#f0f4f8;border-left:4px solid {_AZUL};"
-            f"border-radius:0 8px 8px 0;padding:10px 16px;margin:10px 0 4px'>"
-            f"<strong style='color:{_AZUL};font-size:1rem'>{resp.apellidos_y_nombre}</strong>"
-            f"{dept_badge}"
-            f"<span style='color:#6c757d;font-size:0.8rem;margin-left:10px'>"
-            f"{rol} &middot; {n} persona{'s' if n!=1 else ''} a cargo</span>"
+            f"<div style='margin-left:{indent_px}px;background:{bg_color};"
+            f"border-left:4px solid {borde_color};"
+            f"border-radius:0 8px 8px 0;padding:9px 16px;margin-top:10px;margin-bottom:2px'>"
+            f"<strong style='color:{_AZUL};font-size:{'1rem' if nivel==0 else '0.9rem'}'>"
+            f"{resp.apellidos_y_nombre}</strong>{dept_badge}"
+            f"<span style='color:#6c757d;font-size:0.78rem;margin-left:10px'>"
+            f"{rol_txt} &middot; {n_total} persona{'s' if n_total!=1 else ''} a cargo</span>"
             f"</div>",
             unsafe_allow_html=True,
         )
 
-        if not equipo:
-            st.caption("   Sin personas asignadas todavía.")
-            continue
-
-        for emp in equipo:
-            sub_icon = "👤" if (emp.es_responsable or emp.es_admin) else "·"
-            sub_dept = dept_map.get(emp.id, "")
-            col_icon, col_nom, col_sel, col_btn = st.columns([0.3, 3.8, 4, 0.7])
-            col_icon.markdown(f"<div style='padding-top:8px;color:#888'>{sub_icon}</div>", unsafe_allow_html=True)
-            sub_dept_html = f"<br><span style='font-size:0.72rem;color:#888'>{sub_dept}</span>" if sub_dept else ""
+        # Empleados directos de este responsable
+        for emp in sorted(equipo_de.get(resp.id, []), key=lambda e: e.apellidos_y_nombre):
+            sub_dept      = dept_map.get(emp.id, "")
+            sub_dept_html = f"<br><span style='font-size:0.7rem;color:#888'>{sub_dept}</span>" if sub_dept else ""
+            col_indent, col_nom, col_sel, col_btn = st.columns([0.2 + nivel * 0.3, 3.8, 4, 0.7])
+            col_indent.markdown("")
             col_nom.markdown(
                 f"<div style='padding-top:6px'><b>{emp.apellidos_y_nombre}</b>{sub_dept_html}</div>",
                 unsafe_allow_html=True,
@@ -156,6 +181,14 @@ def _tab_jerarquia() -> None:
                 if st.button("💾", key=f"sjer_{emp.id}"):
                     _emp_repo.update_responsable(emp.id, opc_ids[nuevo_idx] or None)
                     st.rerun()
+
+        # Sub-responsables (recursivo)
+        for sub in sorted(hijos_resp.get(resp.id, []), key=lambda e: e.apellidos_y_nombre):
+            _render_grupo(sub, nivel + 1)
+
+    # ── Renderizar árbol ──────────────────────────────────────────
+    for raiz in raices:
+        _render_grupo(raiz, 0)
 
     # ── Sin asignar ───────────────────────────────────────────────
     if sin_asignar:
