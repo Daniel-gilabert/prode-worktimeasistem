@@ -74,43 +74,93 @@ def _tab_roles() -> None:
 # TAB 2 — JERARQUÍA
 # ═══════════════════════════════════════════════════════════════════
 def _tab_jerarquia() -> None:
-    st.subheader("Asignación: empleado → responsable")
-    st.caption("Define quién es responsable de cada empleado.")
+    st.subheader("Árbol de jerarquía")
+    st.caption(
+        "Cada bloque es un responsable con su equipo. "
+        "Despliega cualquier grupo para reasignar empleados."
+    )
 
-    todos = _emp_repo.get_todos_con_inactivos()
+    todos        = _emp_repo.get_todos_con_inactivos()
+    dept_map     = _dept_repo.get_todos()
     responsables = [e for e in todos if e.es_responsable or e.es_admin]
-    opciones_resp = {e.id: e.apellidos_y_nombre for e in responsables}
-    opciones_resp[""] = "— Sin asignar —"
+    mapa_todos   = {e.id: e for e in todos}
 
-    empleados_no_resp = [e for e in todos if not e.es_responsable and not e.es_admin and e.activo]
+    opciones_ids  = [""] + [e.id for e in sorted(responsables, key=lambda e: e.apellidos_y_nombre)]
+    opciones_text = ["— Sin asignar —"] + [e.apellidos_y_nombre for e in sorted(responsables, key=lambda e: e.apellidos_y_nombre)]
 
-    if not empleados_no_resp:
-        st.info("No hay empleados sin rol de responsable.")
-        return
+    # Construir árbol: responsable_id → lista de empleados
+    grupos: dict[str, list] = {e.id: [] for e in responsables}
+    sin_asignar: list = []
+    for emp in todos:
+        if emp.es_responsable or emp.es_admin:
+            continue
+        if emp.responsable_id and emp.responsable_id in grupos:
+            grupos[emp.responsable_id].append(emp)
+        else:
+            sin_asignar.append(emp)
 
-    st.markdown(f"**{len(empleados_no_resp)} empleados activos**")
+    # Renderizar árbol
+    for resp in sorted(responsables, key=lambda e: e.apellidos_y_nombre):
+        equipo      = sorted(grupos.get(resp.id, []), key=lambda e: e.apellidos_y_nombre)
+        dept_nombre = dept_map.get(resp.id, "")
+        titulo_dept = f" · {dept_nombre}" if dept_nombre else ""
+        n_activos   = sum(1 for e in equipo if e.activo)
 
-    for emp in sorted(empleados_no_resp, key=lambda e: e.apellidos_y_nombre):
-        col_nom, col_sel, col_btn = st.columns([4, 4, 1])
-        col_nom.markdown(f"**{emp.apellidos_y_nombre}**")
+        with st.expander(
+            f"👤 **{resp.apellidos_y_nombre}**{titulo_dept}  —  {n_activos} empleado{'s' if n_activos != 1 else ''}",
+            expanded=False,
+        ):
+            st.markdown(
+                f"<div style='font-size:0.8rem;color:#6c757d;margin-bottom:8px'>"
+                f"{'Admin · ' if resp.es_admin else ''}Responsable"
+                f"{f' · {dept_nombre}' if dept_nombre else ''}"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
 
-        opciones_ids  = [""] + [e.id for e in responsables]
-        opciones_text = [opciones_resp[rid] for rid in opciones_ids]
-        idx_actual    = opciones_ids.index(emp.responsable_id or "")
+            if not equipo:
+                st.caption("Sin empleados asignados.")
+            else:
+                for emp in equipo:
+                    estado_icon = "✅" if emp.activo else "❌"
+                    col_icon, col_nom, col_sel, col_btn = st.columns([0.3, 3.5, 4, 0.8])
+                    col_icon.markdown(estado_icon)
+                    col_nom.markdown(f"{'**' if emp.activo else '~~'}{emp.apellidos_y_nombre}{'**' if emp.activo else '~~'}")
 
-        sel_idx = col_sel.selectbox(
-            "Responsable", options=range(len(opciones_ids)),
-            format_func=lambda i: opciones_text[i],
-            index=idx_actual,
-            key=f"jerarquia_{emp.id}",
-            label_visibility="collapsed",
-        )
-        with col_btn:
-            if st.button("💾", key=f"save_jer_{emp.id}", help="Guardar"):
-                nuevo_resp_id = opciones_ids[sel_idx] or None
-                _emp_repo.update_responsable(emp.id, nuevo_resp_id)
-                st.success("OK")
-                st.rerun()
+                    idx_actual = opciones_ids.index(resp.id)
+                    sel_idx = col_sel.selectbox(
+                        "resp", options=range(len(opciones_ids)),
+                        format_func=lambda i: opciones_text[i],
+                        index=idx_actual,
+                        key=f"jer_{emp.id}",
+                        label_visibility="collapsed",
+                    )
+                    with col_btn:
+                        if st.button("💾", key=f"sjer_{emp.id}", help="Guardar cambio"):
+                            nuevo = opciones_ids[sel_idx] or None
+                            _emp_repo.update_responsable(emp.id, nuevo)
+                            st.success("Guardado")
+                            st.rerun()
+
+    # Sin asignar
+    if sin_asignar:
+        with st.expander(f"⚠️ **Sin responsable asignado** — {len(sin_asignar)} empleado(s)", expanded=True):
+            for emp in sorted(sin_asignar, key=lambda e: e.apellidos_y_nombre):
+                col_nom, col_sel, col_btn = st.columns([3.5, 4, 0.8])
+                col_nom.markdown(f"**{emp.apellidos_y_nombre}**")
+                sel_idx = col_sel.selectbox(
+                    "resp", options=range(len(opciones_ids)),
+                    format_func=lambda i: opciones_text[i],
+                    index=0,
+                    key=f"jer_{emp.id}",
+                    label_visibility="collapsed",
+                )
+                with col_btn:
+                    if st.button("💾", key=f"sjer_{emp.id}", help="Asignar responsable"):
+                        nuevo = opciones_ids[sel_idx] or None
+                        _emp_repo.update_responsable(emp.id, nuevo)
+                        st.success("Guardado")
+                        st.rerun()
 
 
 # ═══════════════════════════════════════════════════════════════════
