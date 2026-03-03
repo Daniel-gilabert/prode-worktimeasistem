@@ -21,6 +21,21 @@ C_ROJO    = "#dc3545"
 C_PRODE   = "#1a3d6e"
 
 
+def _boton_subir_arriba() -> None:
+    st.markdown(
+        """
+        <div style="text-align:right; margin-top:1.5rem;">
+          <a href="#" onclick="window.scrollTo({top:0,behavior:'smooth'}); return false;"
+             style="text-decoration:none; font-size:0.85rem; color:#1a3d6e;
+                    border:1px solid #1a3d6e; border-radius:6px; padding:5px 14px;">
+            ▲ Subir arriba
+          </a>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def _label_mes(anno: int, mes: int) -> str:
     return f"{MESES_ES.get(mes, mes)}/{str(anno)[2:]}"
 
@@ -95,9 +110,11 @@ def render_historico(
 
     with tab_list[0]:
         _tab_semaforo(df, mostrar_todos, _etiqueta)
+        _boton_subir_arriba()
 
     with tab_list[1]:
         _tab_horas(df, mostrar_todos, resumen_actual, ids_responsable, _etiqueta)
+        _boton_subir_arriba()
 
 
 # ═════════════════════════════════════════════════════════════════════════════
