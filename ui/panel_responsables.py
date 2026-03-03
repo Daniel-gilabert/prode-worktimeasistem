@@ -189,12 +189,15 @@ def render_panel_responsables(
         m5.metric("🔴 ≥3 días",          f"{rojos_g} ({_pct(rojos_g, total_g)})")
         st.markdown("---")
 
-        # Solo responsables RAÍZ (cuyo jefe directo no es otro responsable)
-        # Esto evita tarjetas duplicadas: Manuel es raíz, Esperanza es sub de Manuel
+        ids_admins = {e.id for e in todos_empleados if e.es_admin}
+        ids_responsables_puros = {e.id for e in todos_empleados if e.es_responsable and not e.es_admin}
+
+        # Raíz de departamento = responsable (no admin) cuyo jefe directo es admin o no tiene jefe
+        # Excluye sub-responsables (como Esperanza que reporta a Manuel)
         raices = sorted(
             [e for e in todos_empleados
-             if (e.es_responsable or e.es_admin)
-             and (not e.responsable_id or e.responsable_id not in ids_jefes)],
+             if e.es_responsable and not e.es_admin
+             and (not e.responsable_id or e.responsable_id in ids_admins)],
             key=lambda e: _etiqueta(e.id),
         )
 
