@@ -80,6 +80,7 @@ from ui.resumen import render_resumen
 from ui.exportacion import render_exportacion
 from ui.panel_responsables import render_panel_responsables
 from ui.historico import render_historico
+from ui.panel_control import render_panel_control
 
 # =============================================================================
 # CONFIGURACIÓN DE PÁGINA
@@ -122,6 +123,11 @@ with st.sidebar:
     # Auditoría solo para danielgilabert@prode.es
     if usuario.email == "danielgilabert@prode.es":
         st.divider()
+        if st.button("⚙️ Panel de control", use_container_width=True, type="primary"):
+            st.session_state["vista"] = "panel_control"
+            st.rerun()
+        if st.session_state.get("vista") == "panel_control":
+            st.markdown("← [Volver a la app](#)", help="Pulsa otro apartado para salir")
         st.markdown("**Auditoría**")
         registros = auditoria_repo.get_ultimos(300)
         if registros:
@@ -132,6 +138,14 @@ with st.sidebar:
             st.dataframe(df_aud, use_container_width=True, hide_index=True, height=400)
         else:
             st.caption("Sin registros aún.")
+
+# =============================================================================
+# ENRUTAMIENTO: panel control supremo
+# =============================================================================
+
+if st.session_state.get("vista") == "panel_control" and usuario.email == "danielgilabert@prode.es":
+    render_panel_control(usuario)
+    st.stop()
 
 # =============================================================================
 # ENRUTAMIENTO: panel user vs usuario normal

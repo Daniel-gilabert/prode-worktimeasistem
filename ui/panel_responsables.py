@@ -1,6 +1,7 @@
 import os
 import streamlit as st
 from models.empleado import Empleado
+from repositories.departamento_repo import DepartamentoRepository
 
 MESES_ES = {
     1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril",
@@ -112,6 +113,13 @@ def render_panel_responsables(
     anno: int,
 ) -> None:
     nombre_mes = MESES_ES.get(mes, str(mes))
+    dept_map   = DepartamentoRepository().get_todos()
+
+    def _etiqueta_dept(resp_emp: Empleado | None, fallback: str) -> str:
+        if resp_emp and dept_map.get(resp_emp.id):
+            return dept_map[resp_emp.id]
+        return fallback
+
     st.divider()
 
     # ── Toggle vista ──────────────────────────────────────────────────────────
@@ -161,11 +169,12 @@ def render_panel_responsables(
         for resp_id in responsables_ids:
             resp_emp     = directorio.get(resp_id)
             nombre_resp  = resp_emp.apellidos_y_nombre if resp_emp else f"Responsable {resp_id[:8]}"
+            etiqueta     = _etiqueta_dept(resp_emp, nombre_resp)
             empleados_gr = [e for e in todos_empleados if e.responsable_id == resp_id]
             resumenes_gr = [resumen_por_id[e.id] for e in empleados_gr if e.id in resumen_por_id]
             if not resumenes_gr:
                 continue
-            _tarjeta_grupo(nombre_resp, resumenes_gr)
+            _tarjeta_grupo(etiqueta, resumenes_gr)
 
         # Sin responsable
         sin_resp = [

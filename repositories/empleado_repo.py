@@ -68,3 +68,27 @@ class EmpleadoRepository:
         ).execute()
         st.cache_data.clear()
         logger.info("Jornada actualizada para empleado %s → %.1f h", empleado_id, jornada)
+
+    def update_rol_y_email(self, empleado_id: str, activo: bool, es_responsable: bool, es_admin: bool, email: str) -> None:
+        client = get_client()
+        client.table("empleados").update({
+            "activo": activo,
+            "es_responsable": es_responsable,
+            "es_admin": es_admin,
+            "email": email,
+        }).eq("id", empleado_id).execute()
+        st.cache_data.clear()
+        logger.info("Rol actualizado para empleado %s — activo=%s resp=%s admin=%s", empleado_id, activo, es_responsable, es_admin)
+
+    def update_responsable(self, empleado_id: str, responsable_id) -> None:
+        client = get_client()
+        client.table("empleados").update({"responsable_id": responsable_id}).eq(
+            "id", empleado_id
+        ).execute()
+        st.cache_data.clear()
+        logger.info("Responsable de %s actualizado → %s", empleado_id, responsable_id)
+
+    def get_todos_con_inactivos(self) -> list[Empleado]:
+        client = get_client()
+        r = client.table("empleados").select("*").execute()
+        return [Empleado.from_dict(row) for row in r.data]
