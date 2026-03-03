@@ -62,7 +62,16 @@ def _todos_descendientes_ids(raiz_id: str, hijos_map: dict) -> set[str]:
     return resultado
 
 
-def _tarjeta_grupo(etiqueta: str, resumenes_grupo: list[dict]) -> None:
+def _tarjeta_grupo(etiqueta: str, resumenes_grupo: list[dict], orden_ids: list[str] | None = None) -> None:
+    # Ordenar: primero por orden_ids (jerarquía), luego por sin_fichar
+    if orden_ids:
+        orden_map = {eid: i for i, eid in enumerate(orden_ids)}
+        resumenes_grupo = sorted(
+            resumenes_grupo,
+            key=lambda d: (orden_map.get(d["id"], 9999), d.get("sin_fichar", 0))
+        )
+    else:
+        resumenes_grupo = sorted(resumenes_grupo, key=lambda x: x.get("sin_fichar", 0), reverse=True)
     total    = len(resumenes_grupo)
     verdes   = sum(1 for d in resumenes_grupo if d.get("sin_fichar", 0) == 0 and d.get("errores", 0) == 0)
     azules   = sum(1 for d in resumenes_grupo if d.get("sin_fichar", 0) == 0 and d.get("errores", 0) > 0)
@@ -89,17 +98,22 @@ def _tarjeta_grupo(etiqueta: str, resumenes_grupo: list[dict]) -> None:
 
     with c5:
         with st.expander(f"Ver detalle — {etiqueta}", expanded=False):
-            for d in sorted(resumenes_grupo, key=lambda x: x.get("sin_fichar", 0), reverse=True):
+            for d in resumenes_grupo:
                 estado, etiq_emp = _estado_empleado(d)
                 color   = _color_estado(estado)
                 dif_val = d.get("diferencia", 0)
                 dif_str = f"+{dif_val}" if dif_val > 0 else str(dif_val)
+                rol_badge = ""
+                if d.get("es_admin"):
+                    rol_badge = "<span style='background:#1a3d6e;color:#fff;font-size:0.65rem;padding:1px 5px;border-radius:4px;margin-left:4px'>Admin</span>"
+                elif d.get("es_responsable"):
+                    rol_badge = "<span style='background:#6c8ebf;color:#fff;font-size:0.65rem;padding:1px 5px;border-radius:4px;margin-left:4px'>Responsable</span>"
                 st.markdown(
                     f'<div style="display:flex;align-items:center;gap:10px;'
                     f'padding:6px 0;border-bottom:1px solid #eee;font-size:13px;">'
                     f'<span style="width:11px;height:11px;border-radius:50%;background:{color};'
                     f'flex-shrink:0;display:inline-block;"></span>'
-                    f'<span style="flex:1;font-weight:500">{d["nombre"]}</span>'
+                    f'<span style="flex:1;font-weight:500">{d["nombre"]}{rol_badge}</span>'
                     f'<span style="color:#555">{etiq_emp}</span>'
                     f'<span style="color:#888;font-size:12px">'
                     f'{d.get("horas_reales",0)}h / {d.get("objetivo",0)}h &nbsp;&middot;&nbsp; {dif_str}h'
@@ -175,25 +189,46 @@ def render_panel_responsables(
         m5.metric("🔴 ≥3 días",          f"{rojos_g} ({_pct(rojos_g, total_g)})")
         st.markdown("---")
 
-        # Todos los responsables con datos, ordenados por etiqueta (dept o nombre)
-        responsables_con_datos = [
-            e for e in todos_empleados
-            if (e.es_responsable or e.es_admin)
-        ]
-        responsables_con_datos = sorted(responsables_con_datos, key=lambda e: _etiqueta(e.id))
+        # Solo responsables RAÍZ (cuyo jefe directo no es otro responsable)
+        # Esto evita tarjetas duplicadas: Manuel es raíz, Esperanza es sub de Manuel
+        raices = sorted(
+            [e for e in todos_empleados
+             if (e.es_responsable or e.es_admin)
+             and (not e.responsable_id or e.responsable_id not in ids_jefes)],
+            key=lambda e: _etiqueta(e.id),
+        )
 
         ids_ya_mostrados: set[str] = set()
 
-        for resp in responsables_con_datos:
-            resumenes = _resumenes_grupo(resp.id)
-            if not resumenes:
-                continue
-            # Evitar mostrar empleados duplicados si aparecen en múltiples niveles
+        for resp in raices:
+            # Orden jerárquico DFS para el detalle: el responsable raíz primero,
+            # luego sus sub-responsables, luego sus empleados
+            def _orden_dfs(rid: str) -> list[str]:
+                resultado = [rid]
+                for hijo_id in sorted(hijos_map.get(rid, []),
+                                      key=lambda x: directorio.get(x, Empleado(x,x,"",False,False,False)).apellidos_y_nombre):
+                    resultado.extend(_orden_dfs(hijo_id))
+                return resultado
+
+            orden_ids = _orden_dfs(resp.id)
+
+            # Todos los descendientes + el propio responsable si tiene resumen
+            ids_dept   = set(orden_ids)
+            resumenes  = [resumen_por_id[eid] for eid in orden_ids if eid in resumen_por_id]
             resumenes_nuevos = [r for r in resumenes if r["id"] not in ids_ya_mostrados]
+
             if not resumenes_nuevos:
                 continue
+
             ids_ya_mostrados.update(r["id"] for r in resumenes_nuevos)
-            _tarjeta_grupo(_etiqueta(resp.id), resumenes_nuevos)
+            # Enriquecer con rol para badges en el detalle
+            for r in resumenes_nuevos:
+                emp = directorio.get(r["id"])
+                if emp:
+                    r["es_responsable"] = emp.es_responsable
+                    r["es_admin"]       = emp.es_admin
+
+            _tarjeta_grupo(_etiqueta(resp.id), resumenes_nuevos, orden_ids)
 
         # Sin responsable
         sin_resp = [d for d in resumen_global if d["id"] not in ids_ya_mostrados]
