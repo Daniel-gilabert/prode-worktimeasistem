@@ -189,61 +189,51 @@ def render_panel_responsables(
         m5.metric("🔴 ≥3 días",          f"{rojos_g} ({_pct(rojos_g, total_g)})")
         st.markdown("---")
 
-        # Cabezas de departamento = responsables que tienen dept asignado en dept_map
-        # Si nadie tiene dept asignado, usa todos los responsables sin sub-responsable encima
-        cabezas_dept = [
-            e for e in todos_empleados
-            if (e.es_responsable or e.es_admin)
-            and dept_map.get(e.id, "").strip()
-        ]
+        # Agrupar directamente por campo departamento del empleado
+        grupos: dict[str, list[dict]] = {}
+        sin_dept: list[dict] = []
+        for d in resumen_global:
+            emp = directorio.get(d["id"])
+            dept = (emp.departamento if emp else "") or ""
+            if dept:
+                grupos.setdefault(dept, []).append(d)
+            else:
+                sin_dept.append(d)
 
-        # Fallback: si no hay departamentos configurados, usar todos los responsables
-        if not cabezas_dept:
-            cabezas_dept = [e for e in todos_empleados if e.es_responsable or e.es_admin]
-
-        cabezas_dept = sorted(cabezas_dept, key=lambda e: dept_map.get(e.id, e.apellidos_y_nombre))
-
-        ids_ya_mostrados: set[str] = set()
-
-        for resp in cabezas_dept:
-            # Orden jerárquico DFS para el detalle: el responsable raíz primero,
-            # luego sus sub-responsables, luego sus empleados
-            def _orden_dfs(rid: str) -> list[str]:
-                resultado = [rid]
-                for hijo_id in sorted(hijos_map.get(rid, []),
-                                      key=lambda x: directorio.get(x, Empleado(x,x,"",False,False,False)).apellidos_y_nombre):
-                    resultado.extend(_orden_dfs(hijo_id))
-                return resultado
-
-            orden_ids = _orden_dfs(resp.id)
-
-            # Todos los descendientes + el propio responsable si tiene resumen
-            ids_dept   = set(orden_ids)
-            resumenes  = [resumen_por_id[eid] for eid in orden_ids if eid in resumen_por_id]
-            resumenes_nuevos = [r for r in resumenes if r["id"] not in ids_ya_mostrados]
-
-            if not resumenes_nuevos:
-                continue
-
-            ids_ya_mostrados.update(r["id"] for r in resumenes_nuevos)
-            # Enriquecer con rol para badges en el detalle
-            for r in resumenes_nuevos:
+        for dept_nombre in sorted(grupos.keys()):
+            resumenes_dept = grupos[dept_nombre]
+            # Enriquecer con roles
+            for r in resumenes_dept:
                 emp = directorio.get(r["id"])
                 if emp:
                     r["es_responsable"] = emp.es_responsable
                     r["es_admin"]       = emp.es_admin
+            # Ordenar: admins/responsables primero, luego alfabético
+            resumenes_dept = sorted(
+                resumenes_dept,
+                key=lambda d: (0 if (d.get("es_admin") or d.get("es_responsable")) else 1, d["nombre"])
+            )
+            _tarjeta_grupo(dept_nombre, resumenes_dept)
 
-            _tarjeta_grupo(_etiqueta(resp.id), resumenes_nuevos, orden_ids)
-
-        # Sin responsable
-        sin_resp = [d for d in resumen_global if d["id"] not in ids_ya_mostrados]
-        if sin_resp:
-            _tarjeta_grupo("Sin departamento asignado", sin_resp)
+        if sin_dept:
+            _tarjeta_grupo("Sin departamento asignado", sin_dept)
 
     # ── Vista: Mi departamento ────────────────────────────────────────────────
     else:
-        resumenes = _resumenes_grupo(usuario.id)
+        dept = usuario.departamento
+        if dept:
+            resumenes = [d for d in resumen_global
+                         if directorio.get(d["id"]) and directorio[d["id"]].departamento == dept]
+        else:
+            resumenes = _resumenes_grupo(usuario.id)
         if not resumenes:
-            st.info("No hay datos para tu grupo en el periodo cargado.")
+            st.info("No hay datos para tu departamento en el periodo cargado.")
             return
-        _tarjeta_grupo(_etiqueta(usuario.id), resumenes)
+        etiq = dept if dept else _etiqueta(usuario.id)
+        for r in resumenes:
+            emp = directorio.get(r["id"])
+            if emp:
+                r["es_responsable"] = emp.es_responsable
+                r["es_admin"]       = emp.es_admin
+        resumenes = sorted(resumenes, key=lambda d: (0 if (d.get("es_admin") or d.get("es_responsable")) else 1, d["nombre"]))
+        _tarjeta_grupo(etiq, resumenes)
