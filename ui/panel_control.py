@@ -114,14 +114,19 @@ def _tab_jerarquia() -> None:
         label  = dept if dept else resp.apellidos_y_nombre
         n      = len(equipo)
         rol    = "👑 Admin" if resp.es_admin else "👤 Responsable"
+        dept_badge = (
+            f"&nbsp;<span style='background:{_AZUL};color:white;font-size:0.7rem;"
+            f"padding:2px 8px;border-radius:10px'>{dept}</span>"
+        ) if dept else ""
 
         st.markdown(
-            f"""<div style="background:#f0f4f8;border-left:4px solid {_AZUL};
-            border-radius:0 8px 8px 0;padding:10px 16px;margin:10px 0 4px">
-            <strong style="color:{_AZUL};font-size:1rem">{resp.apellidos_y_nombre}</strong>
-            {"&nbsp;&nbsp;<span style='background:#1a3d6e;color:white;font-size:0.7rem;padding:2px 8px;border-radius:10px'>"+dept+"</span>" if dept else ""}
-            <span style="color:#6c757d;font-size:0.8rem;margin-left:10px">{rol} · {n} persona{"s" if n!=1 else ""} a cargo</span>
-            </div>""",
+            f"<div style='background:#f0f4f8;border-left:4px solid {_AZUL};"
+            f"border-radius:0 8px 8px 0;padding:10px 16px;margin:10px 0 4px'>"
+            f"<strong style='color:{_AZUL};font-size:1rem'>{resp.apellidos_y_nombre}</strong>"
+            f"{dept_badge}"
+            f"<span style='color:#6c757d;font-size:0.8rem;margin-left:10px'>"
+            f"{rol} &middot; {n} persona{'s' if n!=1 else ''} a cargo</span>"
+            f"</div>",
             unsafe_allow_html=True,
         )
 

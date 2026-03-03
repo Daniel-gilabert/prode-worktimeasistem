@@ -112,5 +112,11 @@ class EmpleadoRepository:
 
     def get_todos_con_inactivos(self) -> list[Empleado]:
         client = get_client()
-        r = client.table("empleados").select("*").execute()
-        return [Empleado.from_dict(row) for row in r.data]
+        r = client.table("empleados").select("*").order("apellidos_y_nombre").execute()
+        vistos: set = set()
+        resultado = []
+        for row in r.data:
+            if row["id"] not in vistos:
+                vistos.add(row["id"])
+                resultado.append(Empleado.from_dict(row))
+        return resultado
