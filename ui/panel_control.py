@@ -134,9 +134,9 @@ def _tab_jerarquia() -> None:
             sub_dept = dept_map.get(emp.id, "")
             col_icon, col_nom, col_sel, col_btn = st.columns([0.3, 3.8, 4, 0.7])
             col_icon.markdown(f"<div style='padding-top:8px;color:#888'>{sub_icon}</div>", unsafe_allow_html=True)
+            sub_dept_html = f"<br><span style='font-size:0.72rem;color:#888'>{sub_dept}</span>" if sub_dept else ""
             col_nom.markdown(
-                f"<div style='padding-top:6px'><b>{emp.apellidos_y_nombre}</b>"
-                f"{'<br><span style=\"font-size:0.72rem;color:#888\">'+sub_dept+'</span>' if sub_dept else ''}</div>",
+                f"<div style='padding-top:6px'><b>{emp.apellidos_y_nombre}</b>{sub_dept_html}</div>",
                 unsafe_allow_html=True,
             )
             idx = opc_ids.index(emp.responsable_id) if emp.responsable_id in opc_ids else 0
