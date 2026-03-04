@@ -81,7 +81,23 @@ class FichajeService:
             return abs(e - s) < 0.001  # misma hora con margen de 3.6 seg
 
         df["error"] = df.apply(_es_error, axis=1)
-        df["horas"]  = (df["salida_h"] - df["entrada_h"]).clip(lower=0)
+
+        # Usar "Tiempo trabajado" si existe y tiene valor válido > 0
+        # Si no (columna ausente, cero o errónea), calcular con Salida − Entrada
+        if "Tiempo trabajado" in df.columns:
+            df["tiempo_trabajado_h"] = df["Tiempo trabajado"].apply(_convertir_a_horas)
+            usar_tiempo_trabajado = (
+                df["tiempo_trabajado_h"].notna() & (df["tiempo_trabajado_h"] > 0)
+            )
+            df["horas"] = 0.0
+            df.loc[usar_tiempo_trabajado, "horas"] = df.loc[usar_tiempo_trabajado, "tiempo_trabajado_h"]
+            df.loc[~usar_tiempo_trabajado, "horas"] = (
+                (df.loc[~usar_tiempo_trabajado, "salida_h"] - df.loc[~usar_tiempo_trabajado, "entrada_h"])
+                .clip(lower=0)
+            )
+        else:
+            df["horas"] = (df["salida_h"] - df["entrada_h"]).clip(lower=0)
+
         df.loc[df["error"], "horas"] = 0.0
 
         logger.info(

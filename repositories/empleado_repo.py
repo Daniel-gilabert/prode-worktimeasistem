@@ -105,6 +105,12 @@ class EmpleadoRepository:
         client.table("empleados").update({"responsable_id": responsable_id}).eq("id", empleado_id).execute()
         st.cache_data.clear()
 
+    def eliminar_empleado(self, empleado_id: str) -> None:
+        client = get_client()
+        client.table("empleados").update({"activo": False}).eq("id", empleado_id).execute()
+        st.cache_data.clear()
+        logger.info("Empleado desactivado: %s", empleado_id)
+
 
 def _descendientes(raiz_id: str, todos: list[Empleado]) -> list[Empleado]:
     hijos_de: dict[str, list[Empleado]] = {}

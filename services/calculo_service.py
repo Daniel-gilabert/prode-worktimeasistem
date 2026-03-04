@@ -59,6 +59,7 @@ class CalculoService:
         dias_incidencia: set[date],
         anno: int,
         mes: int,
+        detalle_incidencia: dict[date, tuple[str, str]] | None = None,
     ) -> dict:
         festivos_nacionales = _festivos_nacionales(anno)
         festivos_totales = festivos_nacionales | festivos_locales_emp
@@ -75,10 +76,19 @@ class CalculoService:
         ]
         total_laborables = len(dias_laborables)
 
+        # Detectar si TODO el mes laborable está cubierto por incidencias
+        dias_laborables_sin_inc = [
+            d for d in dias_mes
+            if d.weekday() < 5 and d not in festivos_totales
+        ]
+        mes_completo_incidencia = (
+            len(dias_laborables_sin_inc) > 0
+            and all(d in dias_incidencia for d in dias_laborables_sin_inc)
+        )
+
         clave_emp        = _limpiar(emp.apellidos_y_nombre)
         clave_emp_sorted = _clave_sorted(emp.apellidos_y_nombre)
 
-        # Primero intentar coincidencia exacta, luego order-independent
         emp_df = df_fichajes[df_fichajes["clave"] == clave_emp]
         if emp_df.empty and "clave_sorted" in df_fichajes.columns:
             emp_df = df_fichajes[df_fichajes["clave_sorted"] == clave_emp_sorted]
@@ -110,6 +120,7 @@ class CalculoService:
             "objetivo": round(objetivo, 2),
             "diferencia": round(diferencia, 2),
             "horas_extra": round(horas_extra, 2),
+            "mes_completo_incidencia": mes_completo_incidencia,
         }
 
     def calcular_detalle_diario(
@@ -121,6 +132,7 @@ class CalculoService:
         anno: int,
         mes: int,
         tipos_incidencia: dict[date, str] | None = None,
+        detalle_incidencia: dict[date, tuple[str, str]] | None = None,
     ) -> list[dict]:
         festivos_nacionales = _festivos_nacionales(anno)
         festivos_totales    = festivos_nacionales | festivos_locales_emp
@@ -158,8 +170,13 @@ class CalculoService:
                 tipo = "Festivo local"
                 horas = 0.0
             elif d in dias_incidencia:
-                t = (tipos_incidencia or {}).get(d, "INCIDENCIA")
-                tipo = {"VACACIONES": "Vacaciones", "BAJA": "Baja médica", "PERMISO": "Permiso"}.get(t, "Incidencia")
+                if detalle_incidencia and d in detalle_incidencia:
+                    t, desc_inc = detalle_incidencia[d]
+                else:
+                    t = (tipos_incidencia or {}).get(d, "INCIDENCIA")
+                    desc_inc = ""
+                tipo_base = {"VACACIONES": "Vacaciones", "BAJA": "Baja médica", "PERMISO": "Permiso"}.get(t, "Incidencia")
+                tipo = f"{tipo_base} — {desc_inc}" if t == "PERMISO" and desc_inc else tipo_base
                 horas = 0.0
             elif d in validos_h:
                 horas = validos_h[d]

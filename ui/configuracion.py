@@ -107,11 +107,16 @@ def _tab_incidencias(usuario: Empleado, empleados: list[Empleado]) -> None:
         c1, c2 = st.columns(2)
         ini = c1.date_input("Fecha inicio", key="inc_ini")
         fin = c2.date_input("Fecha fin", key="inc_fin")
-        desc = st.text_input("Descripción (opcional)", key="inc_desc")
+        desc = st.text_input(
+            "Descripción" + (" *obligatoria para Permiso*" if tipo == "PERMISO" else " (opcional)"),
+            key="inc_desc",
+        )
 
         if st.form_submit_button("Guardar incidencia"):
             if fin < ini:
                 st.error("La fecha de fin no puede ser anterior a la de inicio.")
+            elif tipo == "PERMISO" and not desc.strip():
+                st.error("La descripción es obligatoria para permisos.")
             else:
                 _inc_repo.create(
                     empleado_id=emp_id,

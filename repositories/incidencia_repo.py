@@ -30,6 +30,20 @@ class IncidenciaRepository:
             resultado.setdefault(inc.empleado_id, set()).update(dias)
         return resultado
 
+    def get_detalle_por_empleado(self) -> dict[str, dict[date, tuple[str, str]]]:
+        """Devuelve {empleado_id: {fecha: (tipo, descripcion)}} para todos los días de incidencia."""
+        incidencias = self.get_all()
+        resultado: dict[str, dict[date, tuple[str, str]]] = {}
+        for inc in incidencias:
+            delta = (inc.fecha_fin - inc.fecha_inicio).days
+            for i in range(delta + 1):
+                d = inc.fecha_inicio + timedelta(days=i)
+                resultado.setdefault(inc.empleado_id, {})[d] = (
+                    inc.tipo.value if hasattr(inc.tipo, "value") else str(inc.tipo),
+                    inc.descripcion or "",
+                )
+        return resultado
+
     def create(
         self,
         empleado_id: str,

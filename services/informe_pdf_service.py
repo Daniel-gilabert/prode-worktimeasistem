@@ -197,7 +197,9 @@ class InformePDFService:
                     Paragraph(horas_txt, cell_style),
                     Paragraph(tipo_txt, cell_style),
                 ])
-                color_fila = TIPO_COLOR.get(tipo_txt, BLANCO)
+                color_fila = TIPO_COLOR.get(tipo_txt) or next(
+                    (v for k, v in TIPO_COLOR.items() if tipo_txt.startswith(k)), BLANCO
+                )
                 if color_fila != BLANCO:
                     estilos_dia.append(("BACKGROUND", (0,i), (-1,i), color_fila))
 

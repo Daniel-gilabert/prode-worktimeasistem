@@ -17,6 +17,8 @@ _AZUL_CORP   = "#1a3d6e"
 
 
 def _estado_empleado(d: dict) -> tuple[str, str]:
+    if d.get("mes_completo_incidencia"):
+        return "azul_inc", "Mes completo ausencia"
     sf  = d.get("sin_fichar", 0)
     err = d.get("errores", 0)
     if sf == 0 and err == 0:
@@ -31,6 +33,7 @@ def _estado_empleado(d: dict) -> tuple[str, str]:
 def _color_estado(estado: str) -> str:
     return {
         "verde": _SEM_VERDE, "azul": _SEM_AZUL,
+        "azul_inc": _SEM_AZUL,
         "naranja": _SEM_NARANJA, "rojo": _SEM_ROJO,
     }.get(estado, _SEM_GRIS)
 
@@ -73,11 +76,16 @@ def _tarjeta_grupo(etiqueta: str, resumenes_grupo: list[dict], orden_ids: list[s
     else:
         resumenes_grupo = sorted(resumenes_grupo, key=lambda x: x.get("sin_fichar", 0), reverse=True)
     total    = len(resumenes_grupo)
-    verdes   = sum(1 for d in resumenes_grupo if d.get("sin_fichar", 0) == 0 and d.get("errores", 0) == 0)
-    azules   = sum(1 for d in resumenes_grupo if d.get("sin_fichar", 0) == 0 and d.get("errores", 0) > 0)
-    naranjas = sum(1 for d in resumenes_grupo if 0 < d.get("sin_fichar", 0) <= 2)
-    rojos    = sum(1 for d in resumenes_grupo if d.get("sin_fichar", 0) > 2)
-    cumpl    = round(verdes / total * 100) if total else 0
+    # Excluir sin datos del Excel de los porcentajes del semáforo
+    sin_datos_g = [d for d in resumenes_grupo if d.get("sin_datos_excel")]
+    ausentes    = [d for d in resumenes_grupo if d.get("mes_completo_incidencia") and not d.get("sin_datos_excel")]
+    activos     = [d for d in resumenes_grupo if not d.get("mes_completo_incidencia") and not d.get("sin_datos_excel")]
+    n_act    = len(activos)
+    verdes   = sum(1 for d in activos if d.get("sin_fichar", 0) == 0 and d.get("errores", 0) == 0)
+    azules   = sum(1 for d in activos if d.get("sin_fichar", 0) == 0 and d.get("errores", 0) > 0)
+    naranjas = sum(1 for d in activos if 0 < d.get("sin_fichar", 0) <= 2)
+    rojos    = sum(1 for d in activos if d.get("sin_fichar", 0) > 2)
+    cumpl    = round(verdes / n_act * 100) if n_act else 0
 
     color_borde = _SEM_VERDE if cumpl >= 80 else _SEM_NARANJA if cumpl >= 50 else _SEM_ROJO
 
@@ -86,15 +94,18 @@ def _tarjeta_grupo(etiqueta: str, resumenes_grupo: list[dict], orden_ids: list[s
         f'border-radius:0 10px 10px 0;padding:14px 18px 10px;margin-bottom:6px;">'
         f'<span style="font-size:1rem;font-weight:700;color:{_AZUL_CORP}">{etiqueta}</span>'
         f'<span style="font-size:0.8rem;color:#6c757d;margin-left:10px">'
-        f'{total} empleado{"s" if total != 1 else ""}</span></div>',
+        f'{total} empleado{"s" if total != 1 else ""}'
+        + (f' · <span style="color:{_SEM_AZUL}">{len(ausentes)} ausente mes completo</span>' if ausentes else "")
+        + (f' · <span style="color:#6c757d">{len(sin_datos_g)} sin datos Excel</span>' if sin_datos_g else "")
+        + f'</span></div>',
         unsafe_allow_html=True,
     )
 
     c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 3])
-    c1.markdown(_indicador_html(_pct(verdes,   total), "Fichaje OK",  _SEM_VERDE,   f"{verdes} pers."),   unsafe_allow_html=True)
-    c2.markdown(_indicador_html(_pct(azules,   total), "Con errores", _SEM_AZUL,    f"{azules} pers."),   unsafe_allow_html=True)
-    c3.markdown(_indicador_html(_pct(naranjas, total), "1-2 días",    _SEM_NARANJA, f"{naranjas} pers."), unsafe_allow_html=True)
-    c4.markdown(_indicador_html(_pct(rojos,    total), "≥3 días",     _SEM_ROJO,    f"{rojos} pers."),    unsafe_allow_html=True)
+    c1.markdown(_indicador_html(_pct(verdes,   n_act), "Fichaje OK",  _SEM_VERDE,   f"{verdes} pers."),   unsafe_allow_html=True)
+    c2.markdown(_indicador_html(_pct(azules,   n_act), "Con errores", _SEM_AZUL,    f"{azules} pers."),   unsafe_allow_html=True)
+    c3.markdown(_indicador_html(_pct(naranjas, n_act), "1-2 días",    _SEM_NARANJA, f"{naranjas} pers."), unsafe_allow_html=True)
+    c4.markdown(_indicador_html(_pct(rojos,    n_act), "≥3 días",     _SEM_ROJO,    f"{rojos} pers."),    unsafe_allow_html=True)
 
     with c5:
         with st.expander(f"Ver detalle — {etiqueta}", expanded=False):
@@ -175,18 +186,22 @@ def render_panel_responsables(
     # ── Vista: Todos los departamentos ────────────────────────────────────────
     if vista == "Todos los departamentos":
         total_g    = len(resumen_global)
-        verdes_g   = sum(1 for d in resumen_global if d.get("sin_fichar",0)==0 and d.get("errores",0)==0)
-        azules_g   = sum(1 for d in resumen_global if d.get("sin_fichar",0)==0 and d.get("errores",0)>0)
-        naranjas_g = sum(1 for d in resumen_global if 0 < d.get("sin_fichar",0) <= 2)
-        rojos_g    = sum(1 for d in resumen_global if d.get("sin_fichar",0) > 2)
+        ausentes_g = sum(1 for d in resumen_global if d.get("mes_completo_incidencia"))
+        activos_g  = [d for d in resumen_global if not d.get("mes_completo_incidencia")]
+        n_act_g    = len(activos_g)
+        verdes_g   = sum(1 for d in activos_g if d.get("sin_fichar",0)==0 and d.get("errores",0)==0)
+        azules_g   = sum(1 for d in activos_g if d.get("sin_fichar",0)==0 and d.get("errores",0)>0)
+        naranjas_g = sum(1 for d in activos_g if 0 < d.get("sin_fichar",0) <= 2)
+        rojos_g    = sum(1 for d in activos_g if d.get("sin_fichar",0) > 2)
 
         st.markdown("#### Resumen global")
-        m1, m2, m3, m4, m5 = st.columns(5)
+        m1, m2, m3, m4, m5, m6 = st.columns(6)
         m1.metric("Total empleados",     total_g)
-        m2.metric("🟢 Fichaje completo", f"{verdes_g} ({_pct(verdes_g, total_g)})")
-        m3.metric("🔵 Con errores",      f"{azules_g} ({_pct(azules_g, total_g)})")
-        m4.metric("🟠 1-2 días",         f"{naranjas_g} ({_pct(naranjas_g, total_g)})")
-        m5.metric("🔴 ≥3 días",          f"{rojos_g} ({_pct(rojos_g, total_g)})")
+        m2.metric("🔵 Ausentes mes",     ausentes_g)
+        m3.metric("🟢 Fichaje completo", f"{verdes_g} ({_pct(verdes_g, n_act_g)})")
+        m4.metric("🔵 Con errores",      f"{azules_g} ({_pct(azules_g, n_act_g)})")
+        m5.metric("🟠 1-2 días",         f"{naranjas_g} ({_pct(naranjas_g, n_act_g)})")
+        m6.metric("🔴 ≥3 días",          f"{rojos_g} ({_pct(rojos_g, n_act_g)})")
         st.markdown("---")
 
         # Agrupar directamente por campo departamento del empleado
