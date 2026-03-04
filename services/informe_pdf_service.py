@@ -4,7 +4,7 @@ from datetime import datetime
 from io import BytesIO
 
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.platypus import (
@@ -90,8 +90,9 @@ def _pie(canvas, doc):
         2 * cm, 1.2 * cm,
         f"Documento generado el {fecha_emision} — WorkTimeAsistem PRODE"
     )
+    ancho_pagina = doc.pagesize[0]
     canvas.drawRightString(
-        A4[0] - 2 * cm, 1.2 * cm,
+        ancho_pagina - 2 * cm, 1.2 * cm,
         f"Pág. {doc.page}"
     )
     canvas.restoreState()
@@ -118,7 +119,7 @@ def _tabla_resumen(datos: list[dict]) -> Table:
             str(d["horas_extra"]),
         ])
 
-    col_widths = [4.5*cm, 1.6*cm, 1.6*cm, 1.5*cm, 1.4*cm, 1.6*cm, 1.5*cm, 1.6*cm, 1.6*cm, 1.4*cm]
+    col_widths = [6.0*cm, 2.0*cm, 2.0*cm, 2.0*cm, 1.8*cm, 2.0*cm, 2.2*cm, 2.2*cm, 2.2*cm, 2.2*cm]
     t = Table(filas, colWidths=col_widths, repeatRows=1)
 
     estilo = [
@@ -187,7 +188,7 @@ class InformePDFService:
         buffer = BytesIO()
         doc = SimpleDocTemplate(
             buffer,
-            pagesize=A4,
+            pagesize=landscape(A4),
             leftMargin=2 * cm,
             rightMargin=2 * cm,
             topMargin=2 * cm,

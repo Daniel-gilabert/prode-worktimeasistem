@@ -123,11 +123,14 @@ with st.sidebar:
     # Auditoría solo para danielgilabert@prode.es
     if usuario.email == "danielgilabert@prode.es":
         st.divider()
-        if st.button("⚙️ Panel de control", use_container_width=True, type="primary"):
-            st.session_state["vista"] = "panel_control"
-            st.rerun()
         if st.session_state.get("vista") == "panel_control":
-            st.markdown("← [Volver a la app](#)", help="Pulsa otro apartado para salir")
+            if st.button("← Volver a la app", use_container_width=True):
+                del st.session_state["vista"]
+                st.rerun()
+        else:
+            if st.button("⚙️ Panel de control", use_container_width=True, type="primary"):
+                st.session_state["vista"] = "panel_control"
+                st.rerun()
         st.markdown("**Auditoría**")
         registros = auditoria_repo.get_ultimos(300)
         if registros:
