@@ -17,6 +17,10 @@ def _limpiar(txt: str) -> str:
     return " ".join(txt.split())
 
 
+def _clave_sorted(txt: str) -> str:
+    return " ".join(sorted(_limpiar(txt).split()))
+
+
 FESTIVOS_NACIONALES_BASE = [
     (1, 1),   # Año Nuevo
     (1, 6),   # Reyes
@@ -71,8 +75,13 @@ class CalculoService:
         ]
         total_laborables = len(dias_laborables)
 
-        clave_emp = _limpiar(emp.apellidos_y_nombre)
+        clave_emp        = _limpiar(emp.apellidos_y_nombre)
+        clave_emp_sorted = _clave_sorted(emp.apellidos_y_nombre)
+
+        # Primero intentar coincidencia exacta, luego order-independent
         emp_df = df_fichajes[df_fichajes["clave"] == clave_emp]
+        if emp_df.empty and "clave_sorted" in df_fichajes.columns:
+            emp_df = df_fichajes[df_fichajes["clave_sorted"] == clave_emp_sorted]
         validos = emp_df[emp_df["error"] == False]
         errores = emp_df[emp_df["error"] == True]
 

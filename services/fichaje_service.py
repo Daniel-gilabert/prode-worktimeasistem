@@ -15,6 +15,12 @@ def _limpiar(txt) -> str:
     return " ".join(txt.split())
 
 
+def _clave_sorted(txt) -> str:
+    """Clave order-independent: palabras ordenadas alfabéticamente.
+    Permite cruzar 'GILABERT CANTERO DANIEL' con 'Daniel Gilabert Cantero'."""
+    return " ".join(sorted(_limpiar(txt).split()))
+
+
 def _convertir_a_horas(valor) -> float | None:
     try:
         partes = str(valor).split(":")
@@ -41,7 +47,8 @@ class FichajeService:
             ~df.iloc[:, 0].astype(str).str.upper().str.contains("TOTAL", na=False)
         ]
 
-        df["clave"] = df["Apellidos y Nombre"].apply(_limpiar)
+        df["clave"]        = df["Apellidos y Nombre"].apply(_limpiar)
+        df["clave_sorted"] = df["Apellidos y Nombre"].apply(_clave_sorted)
         df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
         df["entrada_h"] = df["Hora Entrada"].apply(_convertir_a_horas)
         df["salida_h"] = df["Hora Salida"].apply(_convertir_a_horas)
@@ -64,3 +71,6 @@ class FichajeService:
 
     def clave_empleado(self, nombre: str) -> str:
         return _limpiar(nombre)
+
+    def clave_sorted(self, nombre: str) -> str:
+        return _clave_sorted(nombre)
