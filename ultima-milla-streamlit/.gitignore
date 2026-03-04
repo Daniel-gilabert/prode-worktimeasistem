@@ -6,5 +6,6 @@ __pycache__/
 _generar_passwords.py
 _ver_ids.py
 subir_fotos_empleados.py
+assets/fotos_empleados/
 *.xlsx
-!PLANTILLA_SERVICIOS.xlsx
+assets/plantillas/PLANTILLA_SERVICIOS.xlsx
