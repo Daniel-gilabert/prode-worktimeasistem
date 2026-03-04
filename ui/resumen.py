@@ -29,6 +29,10 @@ def _limpiar(txt) -> str:
     return " ".join(txt.split())
 
 
+def _clave_sorted(txt) -> str:
+    return " ".join(sorted(_limpiar(txt).split()))
+
+
 def render_resumen(
     empleados: list[Empleado],
     df_fichajes: pd.DataFrame,
@@ -49,15 +53,21 @@ def render_resumen(
     xls_svc = InformeExcelService()
     emp_repo = EmpleadoRepository()
 
-    # ── Claves normalizadas ───────────────────────────────────────────────────
-    claves_bd = {_limpiar(e.apellidos_y_nombre): e for e in empleados}
-    claves_excel = set(df_fichajes["clave"].dropna().unique()) if "clave" in df_fichajes.columns else set()
+    # ── Claves normalizadas (exacta + sorted) ─────────────────────────────────
+    claves_excel_exactas = set(df_fichajes["clave"].dropna().unique()) if "clave" in df_fichajes.columns else set()
+    claves_excel_sorted  = set(df_fichajes["clave_sorted"].dropna().unique()) if "clave_sorted" in df_fichajes.columns else set()
 
-    # Empleados en BD sin datos en el Excel
-    sin_datos = [e for clave, e in claves_bd.items() if clave not in claves_excel]
+    def _tiene_datos(e: Empleado) -> bool:
+        ce = _limpiar(e.apellidos_y_nombre)
+        cs = _clave_sorted(e.apellidos_y_nombre)
+        return ce in claves_excel_exactas or cs in claves_excel_sorted
 
-    # Nombres en Excel que no están en BD
-    nuevos_en_excel = sorted(claves_excel - set(claves_bd.keys()))
+    sin_datos       = [e for e in empleados if not _tiene_datos(e)]
+    con_datos_emps  = [e for e in empleados if _tiene_datos(e)]
+
+    # Nombres en Excel no en BD (usando sorted para detectar correctamente)
+    claves_bd_sorted = {_clave_sorted(e.apellidos_y_nombre) for e in empleados}
+    nuevos_en_excel  = sorted(claves_excel_sorted - claves_bd_sorted)
 
     # ── Alerta: nuevos en Excel no están en BD ────────────────────────────────
     if nuevos_en_excel:
@@ -100,6 +110,17 @@ def render_resumen(
     resultados = _calc.calcular_resumen_global(
         empleados, df_fichajes, mapa_festivos, mapa_incidencias, anno, mes
     )
+
+    # Añadir detalle diario a cada resultado para el PDF
+    emp_por_id = {e.id: e for e in empleados}
+    for d in resultados:
+        emp_obj = emp_por_id.get(d["id"])
+        if emp_obj:
+            festivos_emp = mapa_festivos.get(emp_obj.id, set())
+            incidencias_emp = mapa_incidencias.get(emp_obj.id, set())
+            d["dias"] = _calc.calcular_detalle_diario(
+                emp_obj, df_fichajes, festivos_emp, incidencias_emp, anno, mes
+            )
 
     for d in resultados:
         if d["sin_fichar"] == 0:

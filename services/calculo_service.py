@@ -112,6 +112,67 @@ class CalculoService:
             "horas_extra": round(horas_extra, 2),
         }
 
+    def calcular_detalle_diario(
+        self,
+        emp: Empleado,
+        df_fichajes: pd.DataFrame,
+        festivos_locales_emp: set[date],
+        dias_incidencia: set[date],
+        anno: int,
+        mes: int,
+        tipos_incidencia: dict[date, str] | None = None,
+    ) -> list[dict]:
+        festivos_nacionales = _festivos_nacionales(anno)
+        festivos_totales    = festivos_nacionales | festivos_locales_emp
+
+        ultimo_dia = calendar.monthrange(anno, mes)[1]
+        dias_mes   = list(_daterange(date(anno, mes, 1), date(anno, mes, ultimo_dia)))
+
+        clave_emp        = _limpiar(emp.apellidos_y_nombre)
+        clave_emp_sorted = _clave_sorted(emp.apellidos_y_nombre)
+        emp_df = df_fichajes[df_fichajes["clave"] == clave_emp]
+        if emp_df.empty and "clave_sorted" in df_fichajes.columns:
+            emp_df = df_fichajes[df_fichajes["clave_sorted"] == clave_emp_sorted]
+
+        validos_h: dict[date, float] = {}
+        errores_d: set[date] = set()
+        if not emp_df.empty:
+            for _, row in emp_df.iterrows():
+                d = row["Fecha"].date() if hasattr(row["Fecha"], "date") else row["Fecha"]
+                if row.get("error", False):
+                    errores_d.add(d)
+                else:
+                    h = float(row.get("horas", 0) or 0)
+                    validos_h[d] = validos_h.get(d, 0.0) + h
+
+        jornada_diaria = (emp.jornada_semanal or 38.5) / 5
+        resultado = []
+        for d in dias_mes:
+            if d.weekday() >= 5:
+                tipo = "Fin de semana"
+                horas = 0.0
+            elif d in festivos_nacionales:
+                tipo = "Festivo nacional"
+                horas = 0.0
+            elif d in festivos_locales_emp:
+                tipo = "Festivo local"
+                horas = 0.0
+            elif d in dias_incidencia:
+                t = (tipos_incidencia or {}).get(d, "INCIDENCIA")
+                tipo = {"VACACIONES": "Vacaciones", "BAJA": "Baja médica", "PERMISO": "Permiso"}.get(t, "Incidencia")
+                horas = 0.0
+            elif d in validos_h:
+                horas = validos_h[d]
+                tipo  = "Horas extra" if horas > jornada_diaria + 0.25 else "Laborable"
+            elif d in errores_d:
+                tipo  = "Error de registro"
+                horas = 0.0
+            else:
+                tipo  = "Sin fichar"
+                horas = 0.0
+            resultado.append({"fecha": d, "horas": horas, "tipo": tipo})
+        return resultado
+
     def calcular_resumen_global(
         self,
         empleados: list[Empleado],
