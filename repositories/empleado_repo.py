@@ -105,6 +105,17 @@ class EmpleadoRepository:
         client.table("empleados").update({"responsable_id": responsable_id}).eq("id", empleado_id).execute()
         st.cache_data.clear()
 
+    def vincular_a_responsable(self, empleado_id: str, responsable_id: str, departamento: str) -> None:
+        """Asigna responsable y departamento a un empleado existente sin crear duplicado."""
+        client = get_client()
+        client.table("empleados").update({
+            "responsable_id": responsable_id,
+            "departamento": departamento,
+            "activo": True,
+        }).eq("id", empleado_id).execute()
+        st.cache_data.clear()
+        logger.info("Empleado vinculado %s → responsable %s dept=%s", empleado_id, responsable_id, departamento)
+
     def eliminar_empleado(self, empleado_id: str) -> None:
         client = get_client()
         client.table("empleados").update({"activo": False}).eq("id", empleado_id).execute()

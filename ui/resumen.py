@@ -59,6 +59,7 @@ def render_resumen(
     mapa_detalle_inc = inc_repo.get_detalle_por_empleado()
 
     responsable_id = usuario.id if usuario else ""
+    dept_usuario   = (usuario.departamento or "") if usuario else ""
     ignorados = ign_repo.get_por_responsable(responsable_id) if responsable_id else set()
 
     # ── Claves normalizadas (exacta + sorted) ─────────────────────────────────
@@ -73,68 +74,115 @@ def render_resumen(
     sin_datos      = [e for e in empleados if not _tiene_datos(e)]
     con_datos_emps = [e for e in empleados if _tiene_datos(e)]
 
-    # Nombres en Excel no en BD (excluir ya ignorados)
-    claves_bd_sorted = {_clave_sorted(e.apellidos_y_nombre) for e in empleados}
-    nuevos_en_excel  = sorted(
-        (cs for cs in claves_excel_sorted - claves_bd_sorted if cs not in ignorados)
+    # Buscar en TODA la BD (incluye otros departamentos) para detectar duplicados
+    todos_bd = emp_repo.get_todos_con_inactivos()
+    mapa_bd_por_clave: dict[str, Empleado] = {}
+    for e in todos_bd:
+        mapa_bd_por_clave[_clave_sorted(e.apellidos_y_nombre)] = e
+
+    # Nombres en Excel no en el grupo actual (excluir ignorados)
+    claves_bd_sorted_grupo = {_clave_sorted(e.apellidos_y_nombre) for e in empleados}
+    nuevos_en_excel = sorted(
+        cs for cs in claves_excel_sorted - claves_bd_sorted_grupo
+        if cs not in ignorados
     )
 
-    # ── Alerta: nuevos en Excel no están en BD ────────────────────────────────
+    # Empleados solo para semáforo esta sesión (no guardados en BD)
+    semaforo_temporal: set[str] = st.session_state.get("semaforo_temporal", set())
+
+    # ── Alerta: nuevos en Excel no están en el grupo actual ───────────────────
     if nuevos_en_excel:
         with st.expander(
-            f"Empleados nuevos en el Excel no registrados en BD ({len(nuevos_en_excel)})",
+            f"Empleados nuevos en el Excel no registrados en tu grupo ({len(nuevos_en_excel)})",
             expanded=False,
         ):
             st.caption(
-                "Elige qué hacer con cada empleado detectado. "
-                "'No es de mi departamento' lo descartará permanentemente."
+                "Estos empleados aparecen en el Excel pero no están en tu grupo. "
+                "Si ya existen en la BD se vincularán sin duplicar."
             )
-            for nombre_excel in nuevos_en_excel:
-                col_n, col_j, col_add, col_nope = st.columns([4, 2, 2, 2])
-                col_n.markdown(f"**{nombre_excel.title()}**")
-                jornada_nueva = col_j.number_input(
-                    "Jornada h/sem",
-                    min_value=1.0,
-                    max_value=40.0,
-                    value=38.5,
-                    step=0.5,
-                    key=f"jornada_nuevo_{nombre_excel}",
-                    label_visibility="collapsed",
+            for cs in nuevos_en_excel:
+                existe_en_bd = mapa_bd_por_clave.get(cs)
+                col_n, col_j, col_add, col_tmp, col_nope = st.columns([4, 2, 2, 2, 2])
+                col_n.markdown(
+                    f"**{cs.title()}**"
+                    + (f"<br><span style='font-size:11px;color:#6c757d'>Ya existe en BD</span>" if existe_en_bd else "")
+                    , unsafe_allow_html=True
                 )
+
+                jornada_nueva = col_j.number_input(
+                    "h/sem",
+                    min_value=1.0, max_value=40.0, value=38.5, step=0.5,
+                    key=f"jornada_nuevo_{cs}",
+                    label_visibility="collapsed",
+                    disabled=bool(existe_en_bd),
+                )
+
+                # Botón principal: Vincular (si existe) o Añadir (si es nuevo)
                 with col_add:
-                    if st.button(
-                        "Añadir a BD",
-                        key=f"btn_nuevo_{nombre_excel}",
-                        use_container_width=True,
-                        type="primary",
-                    ):
-                        emp_repo.crear_empleado(
-                            apellidos_y_nombre=nombre_excel.title(),
-                            responsable_id=responsable_id,
-                            jornada_semanal=jornada_nueva,
-                        )
-                        st.success(f"'{nombre_excel.title()}' añadido.")
-                        st.rerun()
+                    if existe_en_bd:
+                        if st.button("Vincular a mi grupo", key=f"btn_vincular_{cs}",
+                                     use_container_width=True, type="primary"):
+                            emp_repo.vincular_a_responsable(
+                                existe_en_bd.id, responsable_id, dept_usuario
+                            )
+                            st.success(f"'{cs.title()}' vinculado a tu grupo.")
+                            st.rerun()
+                    else:
+                        if st.button("Añadir a BD", key=f"btn_nuevo_{cs}",
+                                     use_container_width=True, type="primary"):
+                            emp_repo.crear_empleado(
+                                apellidos_y_nombre=cs.title(),
+                                responsable_id=responsable_id,
+                                jornada_semanal=jornada_nueva,
+                                departamento=dept_usuario,
+                            )
+                            st.success(f"'{cs.title()}' añadido.")
+                            st.rerun()
+
+                # Solo semáforo esta sesión
+                with col_tmp:
+                    if cs in semaforo_temporal:
+                        st.caption("✓ En semáforo")
+                    else:
+                        if st.button("Solo semáforo", key=f"btn_tmp_{cs}",
+                                     use_container_width=True):
+                            semaforo_temporal.add(cs)
+                            st.session_state["semaforo_temporal"] = semaforo_temporal
+                            st.rerun()
+
+                # No es mi departamento
                 with col_nope:
-                    clave_ignorar = nombre_excel
-                    confirm_key = f"confirm_ignorar_{nombre_excel}"
+                    confirm_key = f"confirm_ignorar_{cs}"
                     if st.session_state.get(confirm_key):
                         col_si, col_no = st.columns(2)
-                        if col_si.button("Sí, ocultar", key=f"si_ignorar_{nombre_excel}", use_container_width=True):
-                            ign_repo.ignorar(responsable_id, clave_ignorar)
+                        if col_si.button("Sí, ocultar", key=f"si_ignorar_{cs}", use_container_width=True):
+                            ign_repo.ignorar(responsable_id, cs)
+                            semaforo_temporal.discard(cs)
+                            st.session_state["semaforo_temporal"] = semaforo_temporal
                             st.session_state.pop(confirm_key, None)
                             st.rerun()
-                        if col_no.button("Cancelar", key=f"no_ignorar_{nombre_excel}", use_container_width=True):
+                        if col_no.button("Cancelar", key=f"no_ignorar_{cs}", use_container_width=True):
                             st.session_state.pop(confirm_key, None)
                             st.rerun()
                     else:
-                        if st.button(
-                            "No es mi dpto.",
-                            key=f"btn_ignorar_{nombre_excel}",
-                            use_container_width=True,
-                        ):
+                        if st.button("No es mi dpto.", key=f"btn_ignorar_{cs}",
+                                     use_container_width=True):
                             st.session_state[confirm_key] = True
                             st.rerun()
+
+    # Añadir temporales al listado de empleados para el cálculo
+    for cs in list(semaforo_temporal):
+        if cs not in claves_bd_sorted_grupo:
+            emp_tmp = Empleado(
+                id=f"tmp_{cs}",
+                apellidos_y_nombre=cs.title(),
+                email="",
+                activo=True,
+                jornada_semanal=38.5,
+                responsable_id=responsable_id,
+                departamento=dept_usuario,
+            )
+            empleados = list(empleados) + [emp_tmp]
 
     # ── Resultados normales ───────────────────────────────────────────────────
     resultados = _calc.calcular_resumen_global(
