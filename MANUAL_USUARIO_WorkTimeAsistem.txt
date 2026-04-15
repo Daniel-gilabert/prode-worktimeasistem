@@ -1,0 +1,587 @@
+================================================================================
+   WORKTIMEASISTEM PRODE — MANUAL DE USUARIO
+   Fundación PRODE · Departamento Última Milla
+   Versión 2.0 · Abril 2026
+   Creado por Daniel Gilabert Cantero
+================================================================================
+
+ÍNDICE
+------
+  1. ¿Qué es WorkTimeAsistem?
+  2. Cómo acceder
+  3. Roles y qué puede hacer cada uno
+  4. GUÍA ROL: RESPONSABLE / COORDINADOR
+     4.1 Cargar el Excel mensual
+     4.2 Configurar jornadas
+     4.3 Gestionar festivos locales
+     4.4 Registrar incidencias
+     4.5 Leer el resumen mensual
+     4.6 Empleados nuevos en el Excel
+     4.7 Empleados sin datos
+     4.8 Descargar informes PDF y Excel
+     4.9 Histórico y evolución
+  5. GUÍA ROL: ADMINISTRADOR
+     5.1 Panel de semáforo global
+     5.2 Vista por departamento
+     5.3 Horas extra y costes
+     5.4 Histórico y gráficas
+  6. GUÍA ROL: SUPERADMINISTRADOR (danielgilabert@prode.es)
+     6.1 Panel de control
+     6.2 Gestionar roles y acceso
+     6.3 Árbol de jerarquía
+     6.4 Accesos al panel
+     6.5 Auditoría
+  7. Semáforo — qué significa cada color
+  8. Preguntas frecuentes
+
+
+================================================================================
+1. ¿QUÉ ES WORKTIMEASISTEM?
+================================================================================
+
+WorkTimeAsistem es la herramienta interna de Fundación PRODE para:
+
+  - Analizar los fichajes mensuales exportados desde el sistema de control
+    de presencia (Excel).
+  - Calcular automáticamente si cada empleado ha cumplido su jornada.
+  - Gestionar festivos locales, vacaciones, bajas y permisos.
+  - Generar informes individuales y globales en PDF y Excel.
+  - Visualizar el estado de fichaje por departamento en un semáforo.
+  - Guardar el histórico mensual y ver la evolución en gráficas.
+
+URL pública: https://worktime-asisten.streamlit.app
+
+
+================================================================================
+2. CÓMO ACCEDER
+================================================================================
+
+1. Abre el navegador y ve a: https://worktime-asisten.streamlit.app
+
+2. Introduce tu correo corporativo (@prode.es).
+   NO se necesita contraseña — el acceso es por correo electrónico.
+
+3. Pulsa "Acceder".
+
+Si ves el mensaje "Acceso denegado", tu correo no está registrado en el
+sistema. Contacta con danielgilabert@prode.es para solicitar acceso.
+
+IMPORTANTE: El sistema reconoce automáticamente tu rol según tu correo.
+No hay que seleccionar ningún perfil.
+
+
+================================================================================
+3. ROLES Y QUÉ PUEDE HACER CADA UNO
+================================================================================
+
+ROL               ACCESO                  QUÉ VE
+──────────────────────────────────────────────────────────────────────────────
+Empleado          Sin acceso a la app     Solo aparece en el resumen de su
+                                          responsable. No puede entrar.
+
+Coordinador       Accede a la app         Ve solo su departamento.
+                                          Puede cargar Excel, ver resumen,
+                                          descargar informes.
+
+Responsable       Accede a la app         Ve solo su departamento.
+                                          Todo lo del coordinador +
+                                          configurar jornadas, festivos
+                                          e incidencias.
+
+Administrador     Accede a la app         Ve TODA la entidad.
+                                          Panel de semáforo global.
+                                          Horas extra y costes por dpto.
+
+SuperAdmin        Accede a todo           Todo lo anterior + Panel de control
+(danielgilabert   (gestión total)         para gestionar roles, jerarquía,
+@prode.es)                                departamentos y accesos.
+
+
+================================================================================
+4. GUÍA ROL: RESPONSABLE / COORDINADOR
+================================================================================
+
+4.1 CARGAR EL EXCEL MENSUAL
+-----------------------------
+El primer paso siempre es subir el Excel de fichajes del mes que quieres
+analizar. Sin él, no hay datos que mostrar.
+
+PASO A PASO:
+  1. Al entrar verás un cargador de archivos con el texto:
+     "Sube el Excel mensual de fichajes"
+  2. Pulsa "Browse files" o arrastra el archivo Excel.
+  3. El sistema detecta automáticamente el año y el mes del archivo.
+  4. En pocos segundos aparece el resumen mensual debajo.
+
+IMPORTANTE:
+  - El archivo debe ser el Excel exportado directamente desde el sistema
+    de control de presencia.
+  - El sistema usa las columnas: Apellidos y Nombre, Fecha, Hora Entrada,
+    Hora Salida. Si el Excel tiene la columna "Tiempo trabajado" con datos
+    válidos, la usa directamente (más preciso).
+
+También encontrarás el botón "Descargar Excel desde PowerBI" por si
+necesitas obtener el archivo directamente desde el informe de PowerBI.
+
+
+4.2 CONFIGURAR JORNADAS
+-------------------------
+Permite establecer las horas semanales de cada empleado de tu equipo.
+Esto es fundamental para calcular correctamente el objetivo mensual de horas.
+
+PASO A PASO:
+  1. Sube el Excel mensual (obligatorio primero).
+  2. Pulsa el desplegable "Configuración".
+  3. Selecciona la pestaña "Jornadas".
+  4. Verás la lista de tus empleados con un campo numérico al lado.
+     El valor por defecto es 38,5 horas semanales.
+  5. Modifica los valores que necesites.
+  6. Pulsa "Guardar jornadas".
+
+Los cambios se guardan en la base de datos y se aplican al cálculo
+desde ese momento. La jornada diaria equivalente = jornada semanal / 5.
+
+
+4.3 GESTIONAR FESTIVOS LOCALES
+--------------------------------
+Los festivos nacionales ya están incluidos automáticamente. Aquí puedes
+añadir festivos propios de tu centro o equipo.
+
+AÑADIR UN FESTIVO:
+  1. En "Configuración" → pestaña "Festivos [año]".
+  2. Selecciona la fecha con el selector de calendario.
+  3. Escribe una descripción (ej: "Día del centro").
+  4. Pulsa "Añadir festivo".
+
+ASIGNAR EL FESTIVO A EMPLEADOS:
+  Un festivo creado no se aplica automáticamente a todos. Debes indicar
+  a quiénes afecta:
+  1. Pulsa sobre el festivo creado (aparece como desplegable con fecha).
+  2. Verás la lista de tus empleados con casillas de verificación.
+  3. Marca los empleados a los que aplica el festivo.
+  4. Pulsa "Guardar asignaciones".
+
+ELIMINAR UN FESTIVO:
+  1. Abre el desplegable del festivo.
+  2. Pulsa "Eliminar festivo".
+  El festivo desaparece para todos los empleados asignados.
+
+
+4.4 REGISTRAR INCIDENCIAS
+---------------------------
+Permite registrar vacaciones, bajas médicas y permisos. Los días de
+incidencia NO cuentan como días sin fichar — no penalizan al empleado.
+
+TIPOS DE INCIDENCIA:
+  - VACACIONES: Días de descanso reglamentario.
+  - BAJA: Baja médica.
+  - PERMISO: Permiso puntual. REQUIERE descripción obligatoria
+             (ej: "Asistencia a juicio", "Boda familiar").
+
+PASO A PASO:
+  1. En "Configuración" → pestaña "Incidencias".
+  2. Selecciona el empleado en el desplegable.
+  3. Selecciona el tipo (VACACIONES / BAJA / PERMISO).
+  4. Elige la fecha de inicio y fin.
+  5. Si es PERMISO, escribe la descripción (obligatorio).
+  6. Pulsa "Guardar incidencia".
+
+NOTA IMPORTANTE:
+  - Si un empleado tiene incidencia TODO el mes (todos los días laborables),
+    su semáforo se pintará en AZUL y no contará en los porcentajes.
+  - La descripción del permiso aparece en el informe PDF individual.
+
+
+4.5 LEER EL RESUMEN MENSUAL
+-----------------------------
+Tras cargar el Excel aparece una fila por empleado con los datos clave.
+El color de fondo indica su estado:
+
+  Verde claro  = Todos los días fichados correctamente
+  Amarillo     = 1 o 2 días sin fichar
+  Rojo claro   = 3 o más días sin fichar
+  Azul claro   = Todo el mes con incidencia (no computa)
+
+DATOS QUE MUESTRA CADA FILA:
+  - Nombre del empleado
+  - Laborables: días laborables del mes (descontando festivos e incidencias)
+  - Fichados: días con fichaje válido
+  - Errores: días con error de fichaje (entrada = salida)
+  - Sin fichar: días laborables sin registro
+  - Objetivo: horas totales que debería haber trabajado
+  - Horas reales: horas efectivamente registradas
+  - Diferencia: horas reales menos objetivo (positivo = horas extra)
+  - Extra: horas extra acumuladas
+
+FESTIVOS NACIONALES ya descontados automáticamente:
+  1/1 Año Nuevo · 6/1 Reyes · 28/2 Día de Andalucía · 1/5 Trabajo
+  15/8 Asunción · 12/10 Fiesta Nacional · 1/11 Todos los Santos
+  6/12 Constitución · 8/12 Inmaculada · 25/12 Navidad
+
+
+4.6 EMPLEADOS NUEVOS EN EL EXCEL
+----------------------------------
+Si el Excel contiene personas que no están en tu grupo, el sistema lo
+detecta y muestra un aviso desplegable con opciones:
+
+OPCIONES POR CADA EMPLEADO NUEVO:
+  - "Vincular a mi grupo": si el empleado YA existe en la base de datos
+    pero está asignado a otro responsable. Lo vincula a ti sin duplicar.
+  - "Añadir a BD": si es completamente nuevo. Puedes fijar su jornada
+    antes de añadirlo. Se crea con rol Empleado y tu departamento.
+  - "Solo semáforo": aparece en el resumen de esta sesión pero NO se
+    guarda en la base de datos. Al recargar desaparece.
+  - "No es mi dpto.": oculta permanentemente a ese empleado. Aunque
+    aparezca en futuros Excels, no volverá a mostrarse en tus alertas.
+    Se puede revertir desde el Panel de control (solo SuperAdmin).
+
+
+4.7 EMPLEADOS SIN DATOS
+-------------------------
+Al final del resumen verás un desplegable con los empleados que ESTÁN
+en tu base de datos pero NO tienen fichajes en el Excel de este mes.
+
+Pueden no estar porque:
+  - No trabajan en ese mes (baja larga, excedencia).
+  - Su nombre en el Excel no coincide exactamente.
+  - No son de tu departamento y están asignados por error.
+
+OPCIÓN DISPONIBLE:
+  - "Eliminar de BD": desactiva al empleado (doble confirmación).
+    No se borra definitivamente, solo se marca como inactivo.
+
+NOTA: Estos empleados NO aparecen en el semáforo ni afectan a los
+porcentajes de fichaje.
+
+
+4.8 DESCARGAR INFORMES PDF Y EXCEL
+------------------------------------
+Cada fila del resumen tiene dos botones al final:
+
+  [PDF]  → Descarga el informe individual en PDF institucional.
+           Incluye: cabecera con logo PRODE, tabla día a día con
+           colores, resumen numérico y pie con fecha de emisión.
+           Los días de vacaciones/baja/permiso aparecen indicados
+           (para permisos incluye la descripción).
+
+  [XLS]  → Descarga el informe individual en Excel formateado.
+
+INFORME GLOBAL (todos los empleados):
+  Disponible en la sección de exportación debajo del resumen.
+  Genera un PDF con todos los empleados de tu grupo en formato
+  apaisado (A4 horizontal).
+
+
+4.9 HISTÓRICO Y EVOLUCIÓN
+---------------------------
+En la parte inferior de la página encontrarás la sección "Histórico
+y evolución". Esta sección necesita que guardes los datos mes a mes.
+
+GUARDAR UN MES:
+  1. Baja hasta "Histórico y evolución".
+  2. Pulsa "Guardar [mes]/[año]".
+  3. Los datos quedan almacenados en la base de datos.
+
+GUARDAR EL EXCEL EN EL ALMACÉN:
+  En el desplegable "Archivos Excel guardados":
+  1. Pulsa "Guardar Excel [mes]/[año] en almacén".
+  2. El archivo quedará disponible para descargar en el futuro.
+  3. Puedes borrarlo cuando quieras con el botón de papelera.
+
+VER LAS GRÁFICAS:
+  Una vez guardado al menos un mes, aparecen dos pestañas:
+
+  Pestaña "Evolución fichaje":
+    - Gráfica de barras apiladas mostrando la distribución del semáforo
+      por mes (% de empleados en verde, azul, naranja y rojo).
+    - Métricas del último mes guardado.
+    - Gráfica de líneas por empleado (días sin fichar mes a mes).
+
+  Pestaña "Horas extra":
+    - Gráfica de barras por mes (horas extra totales de tu equipo).
+    - Desglose por empleado en un mes concreto.
+    - Métricas: total acumulado, mejor mes, peor mes.
+
+
+================================================================================
+5. GUÍA ROL: ADMINISTRADOR
+================================================================================
+
+Los administradores tienen acceso a todo lo del responsable más:
+- Vista global de todos los departamentos.
+- Datos de horas extra y costes de toda la entidad.
+
+Al entrar verán directamente el panel de semáforo global.
+
+5.1 PANEL DE SEMÁFORO GLOBAL
+------------------------------
+Tras cargar el Excel aparece el panel con dos vistas seleccionables:
+
+VISTA "Todos los departamentos":
+  Muestra un resumen global en la parte superior:
+    - Total empleados
+    - Ausentes mes completo (incidencias que cubren todo el mes)
+    - Porcentaje en cada color del semáforo
+
+  Luego una tarjeta por cada departamento con:
+    - Nombre del departamento
+    - Número total de empleados
+    - Indicadores de color con porcentajes
+    - Desplegable "Ver detalle" con cada empleado, su estado,
+      horas reales vs objetivo y diferencia.
+
+VISTA "Mi departamento":
+  Muestra solo el departamento asignado al administrador.
+  Útil cuando un administrador también tiene su propio equipo.
+
+
+5.2 VISTA POR DEPARTAMENTO
+----------------------------
+Las tarjetas de departamento muestran:
+
+  [Verde]  % de empleados con fichaje completo sin errores
+  [Azul]   % con fichaje completo pero con errores de registro
+  [Naranja] % con 1-2 días sin fichar
+  [Rojo]   % con 3 o más días sin fichar
+
+  El borde lateral de la tarjeta indica el cumplimiento general:
+    - Verde  = ≥ 80% en fichaje completo
+    - Naranja = 50-79%
+    - Rojo   = < 50%
+
+  Los empleados "sin datos en Excel" y los de "mes completo
+  de incidencia" están excluidos de estos porcentajes.
+
+
+5.3 HORAS EXTRA Y COSTES
+--------------------------
+En "Histórico y evolución" → pestaña "Horas extra" (vista admin):
+
+MÉTRICAS GLOBALES (parte superior):
+  - Total horas extra de toda la entidad en el mes cargado.
+  - Coste estimado bruto a 9 €/hora.
+  NOTA: Es un coste estimado bruto. No incluye cotizaciones ni
+        variables contractuales.
+
+DETALLE POR DEPARTAMENTO:
+  Un desplegable por cada departamento con:
+    - Icono de alerta (🔴 > 20h extra · 🟠 > 0h · ⚪ 0h)
+    - Nombre del departamento
+    - Número de personas
+    - Total horas extra
+    - Coste estimado
+  Dentro del desplegable: tabla con cada empleado,
+  sus horas reales, objetivo, horas extra y coste individual.
+
+EDITAR NOMBRES DE DEPARTAMENTO (solo admin):
+  En la parte superior del bloque de horas extra hay un desplegable
+  "Editar nombres de departamento". Permite asignar el nombre que
+  se mostrará en los semáforos y gráficas a cada responsable.
+
+
+5.4 HISTÓRICO Y GRÁFICAS (vista admin)
+----------------------------------------
+Igual que el responsable pero con datos de TODA la entidad.
+El botón "Guardar [mes]/[año]" guarda el resumen global.
+
+Las gráficas muestran la evolución de todos los empleados.
+
+
+================================================================================
+6. GUÍA ROL: SUPERADMINISTRADOR
+   Solo para: danielgilabert@prode.es
+================================================================================
+
+Además de todo lo anterior, el SuperAdmin tiene acceso al
+Panel de control desde el botón "⚙️ Panel de control" en la
+barra lateral izquierda. También ve la auditoría en la barra lateral.
+
+6.1 PANEL DE CONTROL
+----------------------
+Accesible SOLO desde danielgilabert@prode.es.
+Tres pestañas: Roles y acceso · Jerarquía · Accesos al panel.
+
+
+6.2 GESTIONAR ROLES Y ACCESO
+------------------------------
+Lista todos los empleados con opciones de edición para cada uno.
+
+FILTROS DISPONIBLES:
+  - Por rol (empleado / coordinador / responsable / administrador)
+  - Por departamento
+  - Por nombre o correo (búsqueda libre)
+
+CAMPOS EDITABLES POR EMPLEADO:
+  - Email corporativo
+  - Activo / Inactivo
+  - Rol (con descripción de la vista que tendrá)
+  - Departamento (desplegable con los ya existentes o crear nuevo)
+  - Propagar departamento a subordinados (opción de cascada)
+
+CÓMO CAMBIAR EL ROL DE UN EMPLEADO:
+  1. Busca al empleado por nombre o filtra por rol.
+  2. Pulsa sobre su nombre para abrir el panel de edición.
+  3. Cambia el rol en el selector.
+  4. Si el nuevo rol no es "empleado", asigna el departamento.
+  5. Activa "Propagar departamento" si quieres que todos sus
+     subordinados hereden el mismo departamento.
+  6. Pulsa "Guardar cambios".
+
+CÓMO DAR ACCESO A UN NUEVO RESPONSABLE:
+  1. Cambia su rol a "responsable" o "coordinador".
+  2. Asigna el departamento correspondiente.
+  3. Ve a la pestaña "Accesos al panel" y añade su correo
+     si también debe ver el panel de semáforo global.
+
+CÓMO DESACTIVAR UN EMPLEADO:
+  1. Abre su panel de edición.
+  2. Desmarca "Activo".
+  3. Guarda cambios.
+  El empleado ya no aparecerá en los resúmenes ni semáforos.
+
+
+6.3 ÁRBOL DE JERARQUÍA
+------------------------
+Visualiza y edita la estructura de quién reporta a quién.
+
+LA JERARQUÍA FUNCIONA ASÍ:
+  Un administrador puede ser responsable de otro responsable,
+  que a su vez tiene coordinadores, que tienen empleados.
+  Cada nivel "ve hacia abajo" pero no hacia arriba.
+
+  Ejemplo:
+    Manuel (administrador) → Casa de Acogida
+      └── Esperanza (responsable) → Casa de Acogida
+            └── 23 empleados → Casa de Acogida
+
+  Manuel ve a Esperanza y a sus 23 empleados.
+  Esperanza ve solo a sus 23 empleados.
+  Los empleados no tienen acceso a la app.
+
+CÓMO REASIGNAR A UN EMPLEADO:
+  1. Localiza al empleado en el árbol.
+  2. Usa el selector "jefe" que aparece a su derecha.
+  3. Selecciona el nuevo responsable.
+  4. Pulsa el icono de guardar (💾).
+
+EMPLEADOS SIN RESPONSABLE:
+  Al final del árbol aparece una sección en amarillo con los
+  empleados que no tienen responsable asignado. Asígnalos para
+  que aparezcan en el departamento correcto.
+
+
+6.4 ACCESOS AL PANEL
+----------------------
+Controla qué correos pueden ver el panel de semáforo global
+(la vista con todos los departamentos).
+
+AÑADIR UN CORREO:
+  Opción 1 — Desde la lista de empleados con acceso:
+    Selecciona en el desplegable y pulsa "Añadir".
+  Opción 2 — Manual:
+    Escribe el correo directamente y pulsa "Añadir correo manual".
+
+REVOCAR UN CORREO:
+  Pulsa el icono de papelera (🗑) junto al correo.
+
+NOTA: Tener acceso al panel NO modifica el rol del empleado.
+Es una capa adicional de visibilidad.
+
+
+6.5 AUDITORÍA
+--------------
+En la barra lateral izquierda (solo visible para danielgilabert@prode.es)
+hay un registro de las últimas 300 acciones del sistema.
+
+Columnas: Hora · Correo · Acción · Detalle · Resultado
+
+Acciones registradas:
+  - LOGIN (inicio de sesión)
+  - CARGA_EXCEL (subida de archivo)
+  - Guardado de jornadas, festivos, incidencias
+  - Generación de informes
+  - Errores de Supabase
+
+
+================================================================================
+7. SEMÁFORO — QUÉ SIGNIFICA CADA COLOR
+================================================================================
+
+COLOR     SIGNIFICADO                       CONDICIÓN
+─────────────────────────────────────────────────────────────────────────────
+Verde     Fichaje completo sin errores      sin_fichar = 0 y errores = 0
+Azul      Fichaje completo con errores      sin_fichar = 0 y errores > 0
+Naranja   1 o 2 días sin fichar             1 ≤ sin_fichar ≤ 2
+Rojo      3 o más días sin fichar           sin_fichar ≥ 3
+Azul      Mes completo de incidencia        Todos los días laborables
+(especial) (vacaciones/baja/permiso)        con incidencia registrada
+Gris      Sin datos en el Excel             No aparece en fichajes del mes
+
+Los empleados en azul-incidencia y gris-sin-datos NO cuentan
+en los porcentajes del semáforo.
+
+BORDE DE TARJETA DE DEPARTAMENTO:
+  Verde  = ≥ 80% de empleados en verde (fichaje completo)
+  Naranja = 50-79%
+  Rojo   = < 50%
+
+
+================================================================================
+8. PREGUNTAS FRECUENTES
+================================================================================
+
+P: ¿Puedo ver datos de meses anteriores sin cargar el Excel?
+R: Solo si previamente guardaste el resumen de ese mes con el botón
+   "Guardar [mes]/[año]". Los datos del mes actual siempre necesitan
+   el Excel cargado en la sesión.
+
+P: ¿Un empleado con vacaciones contará como "sin fichar"?
+R: No. Los días de incidencia (vacaciones, baja, permiso) se descuentan
+   de los días laborables. No penalizan al empleado.
+
+P: ¿Qué pasa si el empleado ficha en un festivo?
+R: Las horas de ese día suman a las horas reales. Cuenta como horas extra.
+
+P: ¿Por qué aparece un empleado con error de fichaje?
+R: Cuando la hora de entrada y la hora de salida son iguales (0 horas
+   trabajadas). El sistema lo detecta y lo marca como error.
+
+P: ¿Cómo corrijo el nombre de un empleado que no coincide con el Excel?
+R: El sistema usa coincidencia flexible (independiente del orden de las
+   palabras). Si "Gilabert Cantero Daniel" y "Daniel Gilabert Cantero"
+   están en el sistema y el Excel respectivamente, los cruza correctamente.
+   Si aun así no coincide, actualiza el nombre desde el Panel de control.
+
+P: ¿Puedo deshacer el "No es mi departamento"?
+R: Sí, pero solo el SuperAdmin puede hacerlo desde el Panel de control
+   (tabla excel_ignorados en Supabase).
+
+P: ¿Qué significa el coste de 9 €/hora en horas extra?
+R: Es una estimación del coste bruto por hora extra. No incluye
+   cotizaciones sociales ni ningún variable contractual. Es orientativo.
+
+P: ¿Por qué no veo el panel de semáforo?
+R: El panel de semáforo (vista global por departamentos) solo está
+   disponible para correos con acceso específico al panel. Contacta
+   con danielgilabert@prode.es para que te lo active.
+
+P: La app da error al cargar, ¿qué hago?
+R: 1. Recarga la página (Ctrl+Shift+R).
+   2. Si el error persiste, contacta con danielgilabert@prode.es
+      indicando el mensaje de error exacto.
+
+P: ¿El sistema funciona desde cualquier ordenador?
+R: Sí. Solo necesitas navegador web y acceso a internet.
+   URL: https://worktime-asisten.streamlit.app
+
+P: ¿Mis datos están seguros?
+R: Sí. El sistema usa Supabase (PostgreSQL) con seguridad a nivel de fila.
+   Solo pueden acceder los correos registrados como responsables.
+   Todas las acciones quedan registradas en el log de auditoría.
+
+
+================================================================================
+   Fin del documento
+   Para soporte técnico: danielgilabert@prode.es
+   Asunto: [WorkTimeAsistem] + descripción del problema
+================================================================================
