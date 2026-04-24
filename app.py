@@ -14,8 +14,12 @@ def _cargar_env() -> None:
     try:
         secrets = st.secrets
         for key in ("SUPABASE_URL", "SUPABASE_KEY", "LOG_LEVEL", "POWERBI_URL", "SUPERADMIN_EMAIL"):
-            if key in secrets and key not in os.environ:
-                os.environ[key] = str(secrets[key]).strip()
+            try:
+                val = str(secrets[key]).strip().strip('"').strip("'")
+                if val and key not in os.environ:
+                    os.environ[key] = val
+            except (KeyError, Exception):
+                pass
     except Exception:
         pass
 
@@ -71,13 +75,21 @@ logger = logging.getLogger(__name__)
 # GUARDIA DE SEGURIDAD
 # =============================================================================
 
-if not os.environ.get("SUPABASE_URL") or not os.environ.get("SUPABASE_KEY"):
+_url_ok = bool(os.environ.get("SUPABASE_URL", "").strip())
+_key_ok = bool(os.environ.get("SUPABASE_KEY", "").strip())
+
+if not _url_ok or not _key_ok:
     st.set_page_config(page_title="WorkTimeAsistem PRODE", layout="centered")
+    missing = []
+    if not _url_ok:
+        missing.append("SUPABASE_URL")
+    if not _key_ok:
+        missing.append("SUPABASE_KEY")
     st.error(
-        "Faltan las variables de entorno SUPABASE_URL y SUPABASE_KEY. "
-        "Configura los Secrets en Streamlit Cloud o crea el archivo .env con las credenciales."
+        f"Faltan los siguientes secrets en Streamlit Cloud: {', '.join(missing)}. "
+        "Ve a share.streamlit.io → tu app → Settings → Secrets y añádelos."
     )
-    logger.critical("Arranque abortado: SUPABASE_URL o SUPABASE_KEY no definidos.")
+    logger.critical("Arranque abortado: faltan secrets: %s", missing)
     st.stop()
 
 # =============================================================================
