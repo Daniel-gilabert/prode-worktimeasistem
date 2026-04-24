@@ -4,9 +4,24 @@ import logging.handlers
 import pathlib
 import streamlit as st
 
+# =============================================================================
+# CARGAR VARIABLES DE ENTORNO (st.secrets + archivos .env)
+# Debe ejecutarse ANTES de cualquier otra importación del proyecto
+# =============================================================================
+
 def _cargar_env() -> None:
+    # 1. Leer de st.secrets (Streamlit Cloud)
+    try:
+        secrets = st.secrets
+        for key in ("SUPABASE_URL", "SUPABASE_KEY", "LOG_LEVEL", "POWERBI_URL", "SUPERADMIN_EMAIL"):
+            if key in secrets and key not in os.environ:
+                os.environ[key] = str(secrets[key]).strip()
+    except Exception:
+        pass
+
+    # 2. Leer de archivos .env locales (desarrollo local)
     base = pathlib.Path(__file__).resolve().parent
-    for nombre in (".env", "1.env", "1.env.txt"):
+    for nombre in ("key.env", ".env", "1.env", "key.env.txt", "1.env.txt"):
         candidato = base / nombre
         if candidato.exists():
             with open(candidato, encoding="utf-8-sig") as f:
@@ -28,23 +43,26 @@ _cargar_env()
 # =============================================================================
 
 def _configurar_logging() -> None:
-    os.makedirs("logs", exist_ok=True)
-    nivel = getattr(logging, os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO)
-    formatter = logging.Formatter(
-        fmt="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-    file_handler = logging.handlers.RotatingFileHandler(
-        "logs/app.log", maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8",
-    )
-    file_handler.setFormatter(formatter)
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    root_logger = logging.getLogger()
-    if not root_logger.handlers:
-        root_logger.setLevel(nivel)
-        root_logger.addHandler(file_handler)
-        root_logger.addHandler(console_handler)
+    try:
+        os.makedirs("logs", exist_ok=True)
+        nivel = getattr(logging, os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO)
+        formatter = logging.Formatter(
+            fmt="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+        file_handler = logging.handlers.RotatingFileHandler(
+            "logs/app.log", maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8",
+        )
+        file_handler.setFormatter(formatter)
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        root_logger = logging.getLogger()
+        if not root_logger.handlers:
+            root_logger.setLevel(nivel)
+            root_logger.addHandler(file_handler)
+            root_logger.addHandler(console_handler)
+    except Exception:
+        logging.basicConfig(level=logging.INFO)
 
 _configurar_logging()
 logger = logging.getLogger(__name__)
@@ -57,7 +75,7 @@ if not os.environ.get("SUPABASE_URL") or not os.environ.get("SUPABASE_KEY"):
     st.set_page_config(page_title="WorkTimeAsistem PRODE", layout="centered")
     st.error(
         "Faltan las variables de entorno SUPABASE_URL y SUPABASE_KEY. "
-        "Crea el archivo .env con las credenciales correctas."
+        "Configura los Secrets en Streamlit Cloud o crea el archivo .env con las credenciales."
     )
     logger.critical("Arranque abortado: SUPABASE_URL o SUPABASE_KEY no definidos.")
     st.stop()
@@ -177,7 +195,10 @@ if es_panel_user:
             help="Exportado directamente desde el sistema de control de presencia.",
         )
     with col_pbi_a:
-        _pbi_url = os.environ.get("POWERBI_URL", "https://app.powerbi.com/groups/7ece2d6d-0e30-4470-ae37-f6f1f4a2eb6d/reports/9eef11ad-17a7-4035-bf27-37c8cb888e88/ReportSection7904145abaf3870d6a0d").strip()
+        _pbi_url = os.environ.get(
+            "POWERBI_URL",
+            "https://app.powerbi.com/groups/7ece2d6d-0e30-4470-ae37-f6f1f4a2eb6d/reports/9eef11ad-17a7-4035-bf27-37c8cb888e88/ReportSection7904145abaf3870d6a0d"
+        ).strip()
         st.markdown("<div style='padding-top:28px'></div>", unsafe_allow_html=True)
         st.link_button("Descargar Excel desde PowerBI", url=_pbi_url, use_container_width=True)
     with col_graf_a:
@@ -233,7 +254,10 @@ with col_up:
         help="Exportado directamente desde el sistema de control de presencia.",
     )
 with col_pbi:
-    _powerbi_url = os.environ.get("POWERBI_URL", "https://app.powerbi.com/groups/7ece2d6d-0e30-4470-ae37-f6f1f4a2eb6d/reports/9eef11ad-17a7-4035-bf27-37c8cb888e88/ReportSection7904145abaf3870d6a0d").strip()
+    _powerbi_url = os.environ.get(
+        "POWERBI_URL",
+        "https://app.powerbi.com/groups/7ece2d6d-0e30-4470-ae37-f6f1f4a2eb6d/reports/9eef11ad-17a7-4035-bf27-37c8cb888e88/ReportSection7904145abaf3870d6a0d"
+    ).strip()
     st.markdown("<div style='padding-top:28px'></div>", unsafe_allow_html=True)
     st.link_button("Descargar Excel desde PowerBI", url=_powerbi_url, use_container_width=True)
 with col_graf:
