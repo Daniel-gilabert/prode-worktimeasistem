@@ -1,6 +1,7 @@
 .env
 1.env
 1.env.txt
+.streamlit/secrets.toml
 logs/
 __pycache__/
 *.pyc
